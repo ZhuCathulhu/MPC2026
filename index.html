@@ -40,7 +40,7 @@
     <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
   </div>
 
-  <div id="hint">WASD · Click canvas to look · Shift to release mouse</div>
+  <div id="hint">WASD to move· Click canvas to look</div>
   <div id="joystick-zone"></div>
 
   <script type="importmap">
@@ -175,7 +175,7 @@
       mouseLocked = document.pointerLockElement === renderer.domElement
       document.getElementById('hint').textContent = mouseLocked
         ? 'WASD to move · Shift to release mouse'
-        : 'WASD to move · Click canvas to look · Shift to release mouse'
+        : 'WASD to move · Click canvas to look'
     })
 
     // Shift releases pointer lock (gives back the cursor)
