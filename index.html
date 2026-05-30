@@ -16,16 +16,32 @@
       pointer-events: none; white-space: nowrap;
     }
 
-    /* Joystick zone */
     #joystick-zone {
       position: fixed; bottom: 30px; left: 30px;
       width: 110px; height: 110px;
       touch-action: none; z-index: 10;
     }
+
+    #loading {
+      position: fixed; inset: 0;
+      background: #0a0a0a;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 14px;
+      color: #888; font: 13px/1 monospace;
+      transition: opacity 0.6s;
+      z-index: 100;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    #loading-bar-wrap { width: 200px; height: 2px; background: #222; border-radius: 1px; }
+    #loading-bar { height: 100%; background: #888; width: 0%; transition: width 0.2s; }
   </style>
 </head>
 <body>
-  <div id="hint">WASD / Arrow keys to move · Click to look around</div>
+  <div id="loading">
+    <div id="loading-label">loading world…</div>
+    <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+  </div>
+  <div id="hint">WASD to move · Click to look</div>
   <div id="joystick-zone"></div>
 
   <script type="importmap">
@@ -40,6 +56,7 @@
 
   <script type="module">
     import * as THREE from 'three'
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
     import nipplejs from 'nipplejs'
 
     // ── Renderer ──────────────────────────────────────────────────────────
@@ -47,6 +64,8 @@
     renderer.setPixelRatio(devicePixelRatio)
     renderer.setSize(innerWidth, innerHeight)
     renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
     document.body.appendChild(renderer.domElement)
 
     // ── Scene ─────────────────────────────────────────────────────────────
@@ -58,36 +77,15 @@
     const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.01, 200)
 
     // ── Lights ────────────────────────────────────────────────────────────
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5))
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6))
     const sun = new THREE.DirectionalLight(0xffeedd, 2)
     sun.position.set(10, 20, 10)
     sun.castShadow = true
+    sun.shadow.mapSize.setScalar(1024)
     scene.add(sun)
-
-    // ── Ground ────────────────────────────────────────────────────────────
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(40, 40),
-      new THREE.MeshLambertMaterial({ color: 0x2d4a2d })
-    )
-    ground.rotation.x = -Math.PI / 2
-    ground.receiveShadow = true
-    scene.add(ground)
-
-    // Grid lines on ground
-    scene.add(new THREE.GridHelper(40, 20, 0x3a5a3a, 0x3a5a3a))
-
-    // ── Landmark cube ─────────────────────────────────────────────────────
-    const cube = new THREE.Mesh(
-      new THREE.BoxGeometry(1.5, 1.5, 1.5),
-      new THREE.MeshLambertMaterial({ color: 0xe05050 })
-    )
-    cube.position.set(0, 0.75, -8)
-    cube.castShadow = true
-    scene.add(cube)
 
     // ── Player capsule ────────────────────────────────────────────────────
     const player = new THREE.Group()
-
     const body = new THREE.Mesh(
       new THREE.CapsuleGeometry(0.3, 0.8, 4, 8),
       new THREE.MeshLambertMaterial({ color: 0x88aaff })
@@ -96,7 +94,6 @@
     body.castShadow = true
     player.add(body)
 
-    // Eye dot so you can tell which way the player faces
     const eye = new THREE.Mesh(
       new THREE.SphereGeometry(0.08, 6, 6),
       new THREE.MeshBasicMaterial({ color: 0xffffff })
@@ -106,6 +103,73 @@
 
     player.position.set(0, 0, 4)
     scene.add(player)
+
+    // ── Load world GLB (falls back to placeholder if missing) ─────────────
+    function buildPlaceholder() {
+      // Simple flat ground + red cube so controls work immediately
+      const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(40, 40),
+        new THREE.MeshLambertMaterial({ color: 0x2d4a2d })
+      )
+      ground.rotation.x = -Math.PI / 2
+      ground.receiveShadow = true
+      scene.add(ground)
+      scene.add(new THREE.GridHelper(40, 20, 0x3a5a3a, 0x3a5a3a))
+
+      const cube = new THREE.Mesh(
+        new THREE.BoxGeometry(1.5, 1.5, 1.5),
+        new THREE.MeshLambertMaterial({ color: 0xe05050 })
+      )
+      cube.position.set(0, 0.75, -8)
+      cube.castShadow = true
+      scene.add(cube)
+      return cube
+    }
+
+    let spinTarget = null   // we'll spin whatever landmark exists
+
+    const loader = new THREE.LoadingManager(
+      // onLoad
+      () => {
+        const el = document.getElementById('loading')
+        el.classList.add('hidden')
+        setTimeout(() => el.remove(), 700)
+      },
+      // onProgress
+      (_, loaded, total) => {
+        document.getElementById('loading-bar').style.width =
+          `${Math.round((loaded / total) * 100)}%`
+        document.getElementById('loading-label').textContent =
+          `loading world… ${Math.round((loaded / total) * 100)}%`
+      }
+    )
+
+    const gltfLoader = new GLTFLoader(loader)
+
+    gltfLoader.load(
+      '/assets/world.glb',
+      (gltf) => {
+        // Success — add the Blender scene
+        const world = gltf.scene
+        world.traverse(obj => {
+          if (obj.isMesh) {
+            obj.castShadow    = true
+            obj.receiveShadow = true
+          }
+        })
+        scene.add(world)
+      },
+      undefined,
+      // Error — GLB not found, use placeholder
+      () => {
+        console.warn('No world.glb found in /public/assets/ — using placeholder')
+        spinTarget = buildPlaceholder()
+        // Dismiss loading screen immediately
+        const el = document.getElementById('loading')
+        el.classList.add('hidden')
+        setTimeout(() => el.remove(), 700)
+      }
+    )
 
     // ── Input ─────────────────────────────────────────────────────────────
     const keys = {}
@@ -121,7 +185,6 @@
     manager.on('move', (_, d) => { joyX = d.vector?.x ?? 0; joyZ = -(d.vector?.y ?? 0) })
     manager.on('end',  ()     => { joyX = 0; joyZ = 0 })
 
-    // Mouse look (pointer lock)
     let yaw = 0, pitch = 0
     renderer.domElement.addEventListener('click', () => renderer.domElement.requestPointerLock())
     addEventListener('mousemove', e => {
@@ -138,30 +201,23 @@
     renderer.setAnimationLoop(() => {
       const dt = clock.getDelta()
 
-      // Cube slow spin
-      cube.rotation.y += dt * 0.8
+      if (spinTarget) spinTarget.rotation.y += dt * 0.8
 
-      // Movement direction from keyboard + joystick
       let mx = joyX, mz = joyZ
       if (keys['KeyW'] || keys['ArrowUp'])    mz -= 1
       if (keys['KeyS'] || keys['ArrowDown'])  mz += 1
       if (keys['KeyA'] || keys['ArrowLeft'])  mx -= 1
       if (keys['KeyD'] || keys['ArrowRight']) mx += 1
 
-      // Normalize diagonal
       const len = Math.sqrt(mx*mx + mz*mz)
       if (len > 1) { mx /= len; mz /= len }
 
-      // Camera-relative movement
       const fwd   = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw))
       const right = new THREE.Vector3( Math.cos(yaw), 0, -Math.sin(yaw))
       player.position.addScaledVector(fwd,   -mz * SPEED * dt)
       player.position.addScaledVector(right,  mx * SPEED * dt)
-
-      // Clamp to ground
       player.position.y = 0
 
-      // Rotate player to face movement direction
       if (mx !== 0 || mz !== 0) {
         const targetAngle = Math.atan2(
           fwd.x * (-mz) + right.x * mx,
@@ -170,7 +226,6 @@
         player.rotation.y += (targetAngle - player.rotation.y) * 0.2
       }
 
-      // Third-person camera orbit
       const camDist = 5, camH = 2.5
       const camOffset = new THREE.Vector3(
         Math.sin(yaw) * Math.cos(pitch) * camDist,
