@@ -3,44 +3,241 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Movement Test</title>
+  <title>MPC2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Permanent+Marker&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0e0a08; }
     canvas { display: block; }
+
+    #loading {
+      position: fixed; inset: 0; background: #0a0806;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px;
+      font-family: 'Special Elite', monospace; color: #3a1a10;
+      font-size: 13px; letter-spacing: 0.25em;
+      transition: opacity 0.6s; z-index: 100;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    #loading-bar-wrap {
+      width: 200px; height: 2px; background: #1a0a06;
+      border: none; position: relative;
+    }
+    #loading-bar {
+      height: 100%; background: #c0200a; width: 0%;
+      transition: width 0.2s;
+    }
+    #loading-label { text-transform: uppercase; }
+
+    #main-menu {
+      position: fixed; inset: 0; z-index: 90;
+      background: #0e0a08;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      overflow: hidden;
+      transition: opacity 1s;
+    }
+    #main-menu.hidden { opacity: 0; pointer-events: none; }
+
+    #menu-grain {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      opacity: 0.2; pointer-events: none; z-index: 0;
+    }
+
+    .red-smear {
+      position: absolute; background: #7b0000;
+      pointer-events: none; border-radius: 40% 60% 50% 70%;
+    }
+
+    .brush-line {
+      position: absolute; background: #c0200a;
+      pointer-events: none; transform-origin: left center;
+    }
+
+    .ink-dot {
+      position: absolute; border-radius: 50%; background: #1a0000;
+      pointer-events: none;
+    }
+
+    .corner-mark {
+      position: absolute; width: 36px; height: 36px;
+      pointer-events: none; z-index: 2; opacity: 0.4;
+    }
+    .corner-mark svg { width: 100%; height: 100%; }
+
+    .menu-title-area {
+      position: relative; text-align: center;
+      margin-bottom: 48px; z-index: 2;
+      animation: inkBleed 1.3s ease-out forwards;
+    }
+    @keyframes inkBleed {
+      from { opacity: 0; filter: blur(6px); transform: scale(1.05); }
+      to   { opacity: 1; filter: blur(0); transform: scale(1); }
+    }
+
+    .menu-eyebrow {
+      font-family: 'Special Elite', monospace;
+      font-size: 11px; letter-spacing: 0.45em;
+      color: #6b2218; text-transform: uppercase;
+      display: block; margin-bottom: 10px;
+    }
+
+    .menu-title-main {
+      font-family: 'Permanent Marker', cursive;
+      font-size: clamp(52px, 10vw, 80px);
+      color: #d42010; text-transform: uppercase;
+      line-height: 1; letter-spacing: 0.05em;
+      text-shadow: 3px 3px 0px #1a0000, -1px 1px 0px #000, 6px 6px 0px rgba(0,0,0,0.4);
+      display: block;
+    }
+
+    .title-slash {
+      display: block; width: 75%; height: 3px;
+      background: #c0200a; margin: 12px auto 0;
+      clip-path: polygon(0 0, 100% 25%, 98% 100%, 2% 75%);
+    }
+
+    .menu-subtitle {
+      font-family: 'Special Elite', monospace;
+      font-size: 11px; letter-spacing: 0.32em;
+      color: #3a1408; text-transform: uppercase;
+      display: block; margin-top: 10px;
+    }
+
+    .menu-nav {
+      position: relative; z-index: 2;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 4px;
+      animation: riseUp 1s 0.7s ease-out both;
+    }
+    @keyframes riseUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .noir-btn {
+      font-family: 'Special Elite', monospace;
+      font-size: 14px; letter-spacing: 0.28em;
+      text-transform: uppercase; color: #a89080;
+      background: transparent; border: none; cursor: pointer;
+      padding: 11px 40px; width: 280px; text-align: center;
+      position: relative; transition: color 0.15s, letter-spacing 0.2s;
+      user-select: none;
+    }
+    .noir-btn::after {
+      content: ''; position: absolute;
+      left: 12%; right: 12%; bottom: 5px; height: 1px;
+      background: #6b2218;
+      transform: scaleX(0); transform-origin: left;
+      transition: transform 0.24s ease;
+    }
+    .noir-btn:hover { color: #e8cdb8; letter-spacing: 0.35em; }
+    .noir-btn:hover::after { transform: scaleX(1); }
+
+    .noir-btn.hero {
+      font-size: 19px; color: #d42010; letter-spacing: 0.32em;
+    }
+    .noir-btn.hero:hover { color: #ff5535; letter-spacing: 0.4em; }
+    .noir-btn.hero::after { background: #c0200a; height: 2px; }
+
+    .noir-btn.dim {
+      color: #2e1408; cursor: default; pointer-events: none;
+    }
+
+    #menu-version {
+      position: absolute; bottom: 18px; right: 22px;
+      font-family: 'Special Elite', monospace;
+      font-size: 10px; letter-spacing: 0.18em;
+      color: #1e0c06; z-index: 2;
+      animation: riseUp 2s 1.6s both;
+    }
 
     #hint {
       position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.6); color: #aaa;
-      font: 13px/1.5 monospace; padding: 7px 16px; border-radius: 20px;
+      background: rgba(0,0,0,0.7); color: #6a3828;
+      font: 12px/1.5 'Special Elite', monospace;
+      padding: 7px 18px; border-radius: 0;
       pointer-events: none; text-align: center; white-space: nowrap;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      display: none;
     }
 
     #joystick-zone {
       position: fixed; bottom: 30px; left: 30px;
       width: 110px; height: 110px;
-      touch-action: none; z-index: 10;
+      touch-action: none; z-index: 10; display: none;
     }
-
-    #loading {
-      position: fixed; inset: 0; background: #0a0a0a;
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 14px;
-      color: #666; font: 13px/1 monospace;
-      transition: opacity 0.6s; z-index: 100;
-    }
-    #loading.hidden { opacity: 0; pointer-events: none; }
-    #loading-bar-wrap { width: 200px; height: 2px; background: #222; border-radius: 1px; overflow: hidden; }
-    #loading-bar { height: 100%; background: #666; width: 0%; transition: width 0.2s; }
   </style>
 </head>
 <body>
+
   <div id="loading">
     <div id="loading-label">loading…</div>
     <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
   </div>
 
-  <div id="hint">WASD · Click canvas to look · Shift to release mouse</div>
+  <div id="main-menu" class="hidden">
+    <canvas id="menu-grain"></canvas>
+
+    <div class="red-smear" style="width:380px;height:200px;top:8%;left:-60px;transform:rotate(-6deg);opacity:0.06;"></div>
+    <div class="red-smear" style="width:220px;height:130px;bottom:12%;right:10px;transform:rotate(10deg);opacity:0.04;"></div>
+
+    <div class="brush-line" style="width:60%;height:2px;top:20%;left:4%;transform:rotate(-1.4deg);opacity:0.45;"></div>
+    <div class="brush-line" style="width:35%;height:1px;top:21%;left:32%;transform:rotate(0.6deg);opacity:0.25;background:#6b2218;"></div>
+    <div class="brush-line" style="width:50%;height:2px;bottom:18%;right:0;transform:rotate(2deg);opacity:0.3;"></div>
+    <div class="brush-line" style="width:18%;height:1px;bottom:19%;right:28%;transform:rotate(-1deg);opacity:0.2;background:#6b2218;"></div>
+
+    <div class="ink-dot" style="width:7px;height:7px;top:17%;left:11%;opacity:0.4;"></div>
+    <div class="ink-dot" style="width:4px;height:4px;top:34%;right:15%;opacity:0.3;background:#6b0000;"></div>
+    <div class="ink-dot" style="width:9px;height:6px;bottom:26%;left:18%;opacity:0.2;"></div>
+    <div class="ink-dot" style="width:3px;height:3px;top:58%;right:7%;opacity:0.5;background:#5a0000;"></div>
+    <div class="ink-dot" style="width:5px;height:5px;top:72%;left:6%;opacity:0.3;background:#1a0000;"></div>
+
+    <div class="corner-mark" style="top:16px;left:16px;">
+      <svg viewBox="0 0 36 36" fill="none" stroke="#8b2218" stroke-width="1.2">
+        <path d="M3 33 L3 3 L33 3" stroke-dasharray="4 2.5"/>
+      </svg>
+    </div>
+    <div class="corner-mark" style="top:16px;right:16px;">
+      <svg viewBox="0 0 36 36" fill="none" stroke="#8b2218" stroke-width="1.2">
+        <path d="M33 33 L33 3 L3 3" stroke-dasharray="4 2.5"/>
+      </svg>
+    </div>
+    <div class="corner-mark" style="bottom:16px;left:16px;">
+      <svg viewBox="0 0 36 36" fill="none" stroke="#8b2218" stroke-width="1.2">
+        <path d="M3 3 L3 33 L33 33" stroke-dasharray="4 2.5"/>
+      </svg>
+    </div>
+    <div class="corner-mark" style="bottom:16px;right:16px;">
+      <svg viewBox="0 0 36 36" fill="none" stroke="#8b2218" stroke-width="1.2">
+        <path d="M33 3 L33 33 L3 33" stroke-dasharray="4 2.5"/>
+      </svg>
+    </div>
+
+    <div class="menu-title-area">
+      <span class="menu-eyebrow">— a world forgotten —</span>
+      <span class="menu-title-main">MPC2026</span>
+      <span class="title-slash"></span>
+      <span class="menu-subtitle">chapter one</span>
+    </div>
+
+    <nav class="menu-nav">
+      <button class="noir-btn hero" id="btn-play">&#9654; &nbsp; Play</button>
+      <svg width="140" height="14" viewBox="0 0 140 14" fill="none" style="margin:4px 0;">
+        <path d="M6 7 Q35 3 70 7 Q105 11 134 7" stroke="#4a1a10" stroke-width="0.9" stroke-dasharray="5 3"/>
+      </svg>
+      <button class="noir-btn dim" id="btn-continue">&#8635; &nbsp; Continue</button>
+      <button class="noir-btn" id="btn-settings">&#9881; &nbsp; Settings</button>
+      <button class="noir-btn" id="btn-credits">&#9678; &nbsp; Credits</button>
+    </nav>
+
+    <div id="menu-version">v0.1.0</div>
+  </div>
+
+  <div id="hint">WASD to move &middot; Click to look &middot; Shift releases mouse</div>
   <div id="joystick-zone"></div>
 
   <script type="importmap">
@@ -56,7 +253,26 @@
   <script type="module">
     import * as THREE from 'three'
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-    import nipplejs       from 'nipplejs'
+    import nipplejs from 'nipplejs'
+
+    // ── Film grain on menu canvas ─────────────────────────────────────────
+    const grainCanvas = document.getElementById('menu-grain')
+    const gctx = grainCanvas.getContext('2d')
+    function drawGrain() {
+      grainCanvas.width  = innerWidth
+      grainCanvas.height = innerHeight
+      const id = gctx.createImageData(innerWidth, innerHeight)
+      const d  = id.data
+      for (let i = 0; i < d.length; i += 4) {
+        const v = Math.random() * 255 | 0
+        d[i]   = v
+        d[i+1] = v * 0.15 | 0
+        d[i+2] = v * 0.08 | 0
+        d[i+3] = Math.random() * 38 | 0
+      }
+      gctx.putImageData(id, 0, 0)
+    }
+    drawGrain()
 
     // ── Renderer ──────────────────────────────────────────────────────────
     const renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -71,56 +287,56 @@
 
     // ── Scene ─────────────────────────────────────────────────────────────
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x1a1a2e)
-    scene.fog = new THREE.Fog(0x1a1a2e, 25, 65)
+    scene.background = new THREE.Color(0x100806)
+    scene.fog = new THREE.Fog(0x100806, 22, 60)
 
     // ── Camera ────────────────────────────────────────────────────────────
     const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.01, 200)
     camera.position.set(0, 3, 6)
 
     // ── Lights ────────────────────────────────────────────────────────────
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6))
-    const sun = new THREE.DirectionalLight(0xffeedd, 2)
-    sun.position.set(10, 20, 10)
-    sun.castShadow = true
-    sun.shadow.mapSize.setScalar(1024)
-    scene.add(sun)
+    scene.add(new THREE.AmbientLight(0x331108, 1.0))
+    const keyLight = new THREE.DirectionalLight(0xff4422, 1.8)
+    keyLight.position.set(-8, 16, 6)
+    keyLight.castShadow = true
+    keyLight.shadow.mapSize.setScalar(1024)
+    scene.add(keyLight)
+    const rimLight = new THREE.DirectionalLight(0x220000, 0.6)
+    rimLight.position.set(10, 4, -8)
+    scene.add(rimLight)
 
     // ── Player ────────────────────────────────────────────────────────────
     const player = new THREE.Group()
-
     const body = new THREE.Mesh(
       new THREE.CapsuleGeometry(0.3, 0.8, 4, 8),
-      new THREE.MeshLambertMaterial({ color: 0x88aaff })
+      new THREE.MeshLambertMaterial({ color: 0x1a0a06 })
     )
     body.position.y = 0.7
     body.castShadow = true
     player.add(body)
-
     const eye = new THREE.Mesh(
       new THREE.SphereGeometry(0.08, 6, 6),
-      new THREE.MeshBasicMaterial({ color: 0xffffff })
+      new THREE.MeshBasicMaterial({ color: 0xcc2200 })
     )
     eye.position.set(0, 1.1, -0.28)
     player.add(eye)
-
     player.position.set(0, 0, 4)
     scene.add(player)
 
-    // ── Placeholder world (used when no GLB present) ──────────────────────
+    // ── Placeholder world ─────────────────────────────────────────────────
     function buildPlaceholder() {
       const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(40, 40),
-        new THREE.MeshLambertMaterial({ color: 0x2d4a2d })
+        new THREE.MeshLambertMaterial({ color: 0x0e0806 })
       )
       ground.rotation.x = -Math.PI / 2
       ground.receiveShadow = true
       scene.add(ground)
-      scene.add(new THREE.GridHelper(40, 20, 0x3a5a3a, 0x3a5a3a))
-
+      const grid = new THREE.GridHelper(40, 20, 0x2a0a06, 0x1a0604)
+      scene.add(grid)
       const cube = new THREE.Mesh(
         new THREE.BoxGeometry(1.5, 1.5, 1.5),
-        new THREE.MeshLambertMaterial({ color: 0xe05050 })
+        new THREE.MeshLambertMaterial({ color: 0xaa1100 })
       )
       cube.position.set(0, 0.75, -8)
       cube.castShadow = true
@@ -128,18 +344,52 @@
       return cube
     }
 
-    // ── Load world.glb or fall back ───────────────────────────────────────
-    let spinTarget = null
+    // ── State ─────────────────────────────────────────────────────────────
+    let spinTarget  = null
+    let gameRunning = false
 
-    function dismissLoading() {
+    // ── Loading ───────────────────────────────────────────────────────────
+    function dismissLoading(cb) {
       const el = document.getElementById('loading')
-      if (!el) return
+      if (!el) { cb && cb(); return }
       el.classList.add('hidden')
-      setTimeout(() => el.remove(), 700)
+      setTimeout(() => { el.remove(); cb && cb() }, 700)
     }
 
-    const gltfLoader = new GLTFLoader()
+    function showMenu() {
+      const m = document.getElementById('main-menu')
+      m.classList.remove('hidden')
+      const hasSave = false
+      if (hasSave) {
+        const cont = document.getElementById('btn-continue')
+        cont.classList.remove('dim')
+        cont.style.pointerEvents = 'auto'
+      }
+    }
 
+    function enterGame() {
+      const m = document.getElementById('main-menu')
+      m.classList.add('hidden')
+      setTimeout(() => {
+        m.remove()
+        document.getElementById('hint').style.display = 'block'
+        document.getElementById('joystick-zone').style.display = 'block'
+        gameRunning = true
+      }, 1000)
+    }
+
+    // ── Menu events ───────────────────────────────────────────────────────
+    document.getElementById('btn-play').addEventListener('click', enterGame)
+    document.getElementById('btn-continue').addEventListener('click', enterGame)
+    document.getElementById('btn-settings').addEventListener('click', () => {
+      alert('Settings — coming soon.')
+    })
+    document.getElementById('btn-credits').addEventListener('click', () => {
+      alert('Credits — coming soon.')
+    })
+
+    // ── GLB load ──────────────────────────────────────────────────────────
+    const gltfLoader = new GLTFLoader()
     gltfLoader.load(
       '/assets/world.glb',
       (gltf) => {
@@ -147,47 +397,40 @@
           if (o.isMesh) { o.castShadow = true; o.receiveShadow = true }
         })
         scene.add(gltf.scene)
-        dismissLoading()
+        dismissLoading(showMenu)
       },
       (xhr) => {
         if (xhr.total) {
           const pct = Math.round((xhr.loaded / xhr.total) * 100)
           document.getElementById('loading-bar').style.width = pct + '%'
-          document.getElementById('loading-label').textContent = `loading world… ${pct}%`
+          document.getElementById('loading-label').textContent = `loading… ${pct}%`
         }
       },
       () => {
-        // No GLB found — use placeholder
-        console.info('No /assets/world.glb found — using placeholder')
         spinTarget = buildPlaceholder()
-        dismissLoading()
+        dismissLoading(showMenu)
       }
     )
 
-    // ── Pointer lock + Shift toggle ────────────────────────────────────────
+    // ── Pointer lock ──────────────────────────────────────────────────────
     let mouseLocked = false
-
     renderer.domElement.addEventListener('click', () => {
-      if (!mouseLocked) renderer.domElement.requestPointerLock()
+      if (gameRunning && !mouseLocked) renderer.domElement.requestPointerLock()
     })
-
     document.addEventListener('pointerlockchange', () => {
       mouseLocked = document.pointerLockElement === renderer.domElement
-      document.getElementById('hint').textContent = mouseLocked
-        ? 'WASD to move · Shift to release mouse'
-        : 'WASD to move · Click canvas to look · Shift to release mouse'
+      const hint = document.getElementById('hint')
+      if (hint) hint.textContent = mouseLocked
+        ? 'WASD to move · Shift releases mouse'
+        : 'WASD to move · Click to look · Shift releases mouse'
     })
-
-    // Shift releases pointer lock (gives back the cursor)
     addEventListener('keydown', e => {
-      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-        if (mouseLocked) document.exitPointerLock()
-      }
+      if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && mouseLocked)
+        document.exitPointerLock()
     })
 
-    // ── Mouse look ────────────────────────────────────────────────────────
+    // ── Look ──────────────────────────────────────────────────────────────
     let yaw = 0, pitch = 0
-
     addEventListener('mousemove', e => {
       if (!mouseLocked) return
       yaw   -= e.movementX * 0.002
@@ -195,7 +438,7 @@
       pitch  = Math.max(-0.5, Math.min(0.4, pitch))
     })
 
-    // ── Keyboard input ────────────────────────────────────────────────────
+    // ── Keys ──────────────────────────────────────────────────────────────
     const keys = {}
     addEventListener('keydown', e => { keys[e.code] = true  })
     addEventListener('keyup',   e => { keys[e.code] = false })
@@ -205,7 +448,7 @@
     const manager = nipplejs.create({
       zone: document.getElementById('joystick-zone'),
       mode: 'static', position: { left: '50%', top: '50%' },
-      color: 'rgba(140,160,255,0.5)', size: 100,
+      color: 'rgba(180,40,20,0.4)', size: 100,
     })
     manager.on('move', (_, d) => { joyX = d.vector?.x ?? 0; joyZ = -(d.vector?.y ?? 0) })
     manager.on('end',  ()     => { joyX = 0; joyZ = 0 })
@@ -215,11 +458,10 @@
     const SPEED = 5
 
     renderer.setAnimationLoop(() => {
-      const dt = Math.min(clock.getDelta(), 0.1)  // cap delta so big pauses don't teleport
-
+      const dt = Math.min(clock.getDelta(), 0.1)
       if (spinTarget) spinTarget.rotation.y += dt * 0.8
+      if (!gameRunning) { renderer.render(scene, camera); return }
 
-      // Movement vector
       let mx = joyX, mz = joyZ
       if (keys['KeyW'] || keys['ArrowUp'])    mz -= 1
       if (keys['KeyS'] || keys['ArrowDown'])  mz += 1
@@ -229,15 +471,13 @@
       const len = Math.sqrt(mx * mx + mz * mz)
       if (len > 1) { mx /= len; mz /= len }
 
-      // Camera-relative directions
       const fwd   = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw))
       const right = new THREE.Vector3( Math.cos(yaw), 0, -Math.sin(yaw))
 
       player.position.addScaledVector(fwd,   -mz * SPEED * dt)
       player.position.addScaledVector(right,  mx * SPEED * dt)
-      player.position.y = 0   // keep on ground
+      player.position.y = 0
 
-      // Face movement direction
       if (mx !== 0 || mz !== 0) {
         const angle = Math.atan2(
           fwd.x * (-mz) + right.x * mx,
@@ -246,7 +486,6 @@
         player.rotation.y += (angle - player.rotation.y) * 0.2
       }
 
-      // Third-person camera
       const camDist = 5, camH = 2.5
       const offset = new THREE.Vector3(
         Math.sin(yaw) * Math.cos(pitch) * camDist,
@@ -265,6 +504,7 @@
       camera.aspect = innerWidth / innerHeight
       camera.updateProjectionMatrix()
       renderer.setSize(innerWidth, innerHeight)
+      drawGrain()
     })
   </script>
 </body>
