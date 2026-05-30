@@ -330,24 +330,28 @@
       const fwd   = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw))
       const right = new THREE.Vector3( Math.cos(yaw), 0, -Math.sin(yaw))
 
-      // ── Wall collision ───────────────────────────────────────────────────
-      // Before moving, cast a ray in the intended direction at chest height.
-      // If a wall is within PLAYER_RADIUS, cancel that axis of movement.
+      // ── Wall + NPC collision ─────────────────────────────────────────────
       const PLAYER_RADIUS = 0.5
       const wallRay = new THREE.Raycaster()
       const chestPos = player.position.clone().add(new THREE.Vector3(0, 1, 0))
 
-      if (mz !== 0 && worldMeshes.length > 0) {
+      // Collect NPC body meshes alongside world meshes
+      const collidables = [...worldMeshes]
+      for (const npc of npcs) {
+        npc.root.traverse(o => { if (o.isMesh) collidables.push(o) })
+      }
+
+      if (mz !== 0 && collidables.length > 0) {
         const dir = fwd.clone().multiplyScalar(-mz).normalize()
         wallRay.set(chestPos, dir)
         wallRay.far = PLAYER_RADIUS
-        if (wallRay.intersectObjects(worldMeshes, false).length > 0) mz = 0
+        if (wallRay.intersectObjects(collidables, false).length > 0) mz = 0
       }
-      if (mx !== 0 && worldMeshes.length > 0) {
+      if (mx !== 0 && collidables.length > 0) {
         const dir = right.clone().multiplyScalar(mx).normalize()
         wallRay.set(chestPos, dir)
         wallRay.far = PLAYER_RADIUS
-        if (wallRay.intersectObjects(worldMeshes, false).length > 0) mx = 0
+        if (wallRay.intersectObjects(collidables, false).length > 0) mx = 0
       }
 
       player.position.addScaledVector(fwd,  -mz * SPEED * dt)
