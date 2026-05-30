@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RPG Engine</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: 'Georgia', serif;
+    }
+    #app { width: 100%; height: 100%; position: relative; }
+    canvas { display: block; }
+
+    /* Loading screen */
+    #loading {
+      position: absolute; inset: 0;
+      background: #0a0a0a;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 100;
+      transition: opacity 0.8s ease;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    #loading-title {
+      font-size: 2.5rem;
+      font-weight: 300;
+      letter-spacing: 0.3em;
+      color: #c8b89a;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+    }
+    #loading-bar-wrap {
+      width: 280px; height: 2px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 1px;
+      overflow: hidden;
+    }
+    #loading-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #c8b89a, #e8d5b0);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    #loading-status {
+      margin-top: 1rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      color: rgba(200,184,154,0.5);
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="loading">
+      <div id="loading-title">Loading World</div>
+      <div id="loading-bar-wrap">
+        <div id="loading-bar"></div>
+      </div>
+      <div id="loading-status">Initializing...</div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
