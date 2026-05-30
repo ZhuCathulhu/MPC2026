@@ -3,67 +3,192 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RPG Engine</title>
+  <title>Movement Test</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: #000;
-      font-family: 'Georgia', serif;
-    }
-    #app { width: 100%; height: 100%; position: relative; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
     canvas { display: block; }
 
-    /* Loading screen */
-    #loading {
-      position: absolute; inset: 0;
-      background: #0a0a0a;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      z-index: 100;
-      transition: opacity 0.8s ease;
+    #hint {
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.55); color: #ccc;
+      font: 13px/1 monospace; padding: 7px 14px; border-radius: 20px;
+      pointer-events: none; white-space: nowrap;
     }
-    #loading.hidden { opacity: 0; pointer-events: none; }
-    #loading-title {
-      font-size: 2.5rem;
-      font-weight: 300;
-      letter-spacing: 0.3em;
-      color: #c8b89a;
-      text-transform: uppercase;
-      margin-bottom: 2rem;
-    }
-    #loading-bar-wrap {
-      width: 280px; height: 2px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 1px;
-      overflow: hidden;
-    }
-    #loading-bar {
-      height: 100%;
-      background: linear-gradient(90deg, #c8b89a, #e8d5b0);
-      width: 0%;
-      transition: width 0.3s ease;
-    }
-    #loading-status {
-      margin-top: 1rem;
-      font-size: 0.75rem;
-      letter-spacing: 0.2em;
-      color: rgba(200,184,154,0.5);
-      text-transform: uppercase;
+
+    /* Joystick zone */
+    #joystick-zone {
+      position: fixed; bottom: 30px; left: 30px;
+      width: 110px; height: 110px;
+      touch-action: none; z-index: 10;
     }
   </style>
 </head>
 <body>
-  <div id="app">
-    <div id="loading">
-      <div id="loading-title">Loading World</div>
-      <div id="loading-bar-wrap">
-        <div id="loading-bar"></div>
-      </div>
-      <div id="loading-status">Initializing...</div>
-    </div>
-  </div>
-  <script type="module" src="/src/main.js"></script>
+  <div id="hint">WASD / Arrow keys to move · Click to look around</div>
+  <div id="joystick-zone"></div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.167.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.167.0/examples/jsm/",
+      "nipplejs": "https://unpkg.com/nipplejs@0.10.1/dist/nipplejs.mjs"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three'
+    import nipplejs from 'nipplejs'
+
+    // ── Renderer ──────────────────────────────────────────────────────────
+    const renderer = new THREE.WebGLRenderer({ antialias: true })
+    renderer.setPixelRatio(devicePixelRatio)
+    renderer.setSize(innerWidth, innerHeight)
+    renderer.shadowMap.enabled = true
+    document.body.appendChild(renderer.domElement)
+
+    // ── Scene ─────────────────────────────────────────────────────────────
+    const scene = new THREE.Scene()
+    scene.background = new THREE.Color(0x1a1a2e)
+    scene.fog = new THREE.Fog(0x1a1a2e, 20, 60)
+
+    // ── Camera ────────────────────────────────────────────────────────────
+    const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.01, 200)
+
+    // ── Lights ────────────────────────────────────────────────────────────
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5))
+    const sun = new THREE.DirectionalLight(0xffeedd, 2)
+    sun.position.set(10, 20, 10)
+    sun.castShadow = true
+    scene.add(sun)
+
+    // ── Ground ────────────────────────────────────────────────────────────
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(40, 40),
+      new THREE.MeshLambertMaterial({ color: 0x2d4a2d })
+    )
+    ground.rotation.x = -Math.PI / 2
+    ground.receiveShadow = true
+    scene.add(ground)
+
+    // Grid lines on ground
+    scene.add(new THREE.GridHelper(40, 20, 0x3a5a3a, 0x3a5a3a))
+
+    // ── Landmark cube ─────────────────────────────────────────────────────
+    const cube = new THREE.Mesh(
+      new THREE.BoxGeometry(1.5, 1.5, 1.5),
+      new THREE.MeshLambertMaterial({ color: 0xe05050 })
+    )
+    cube.position.set(0, 0.75, -8)
+    cube.castShadow = true
+    scene.add(cube)
+
+    // ── Player capsule ────────────────────────────────────────────────────
+    const player = new THREE.Group()
+
+    const body = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.3, 0.8, 4, 8),
+      new THREE.MeshLambertMaterial({ color: 0x88aaff })
+    )
+    body.position.y = 0.7
+    body.castShadow = true
+    player.add(body)
+
+    // Eye dot so you can tell which way the player faces
+    const eye = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 6, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    )
+    eye.position.set(0, 1.1, -0.28)
+    player.add(eye)
+
+    player.position.set(0, 0, 4)
+    scene.add(player)
+
+    // ── Input ─────────────────────────────────────────────────────────────
+    const keys = {}
+    addEventListener('keydown', e => { keys[e.code] = true })
+    addEventListener('keyup',   e => { keys[e.code] = false })
+
+    let joyX = 0, joyZ = 0
+    const manager = nipplejs.create({
+      zone: document.getElementById('joystick-zone'),
+      mode: 'static', position: { left: '50%', top: '50%' },
+      color: 'rgba(140,160,255,0.5)', size: 100,
+    })
+    manager.on('move', (_, d) => { joyX = d.vector?.x ?? 0; joyZ = -(d.vector?.y ?? 0) })
+    manager.on('end',  ()     => { joyX = 0; joyZ = 0 })
+
+    // Mouse look (pointer lock)
+    let yaw = 0, pitch = 0
+    renderer.domElement.addEventListener('click', () => renderer.domElement.requestPointerLock())
+    addEventListener('mousemove', e => {
+      if (document.pointerLockElement !== renderer.domElement) return
+      yaw   -= e.movementX * 0.002
+      pitch -= e.movementY * 0.002
+      pitch  = Math.max(-0.5, Math.min(0.4, pitch))
+    })
+
+    // ── Game loop ─────────────────────────────────────────────────────────
+    const clock = new THREE.Clock()
+    const SPEED = 5
+
+    renderer.setAnimationLoop(() => {
+      const dt = clock.getDelta()
+
+      // Cube slow spin
+      cube.rotation.y += dt * 0.8
+
+      // Movement direction from keyboard + joystick
+      let mx = joyX, mz = joyZ
+      if (keys['KeyW'] || keys['ArrowUp'])    mz -= 1
+      if (keys['KeyS'] || keys['ArrowDown'])  mz += 1
+      if (keys['KeyA'] || keys['ArrowLeft'])  mx -= 1
+      if (keys['KeyD'] || keys['ArrowRight']) mx += 1
+
+      // Normalize diagonal
+      const len = Math.sqrt(mx*mx + mz*mz)
+      if (len > 1) { mx /= len; mz /= len }
+
+      // Camera-relative movement
+      const fwd   = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw))
+      const right = new THREE.Vector3( Math.cos(yaw), 0, -Math.sin(yaw))
+      player.position.addScaledVector(fwd,   -mz * SPEED * dt)
+      player.position.addScaledVector(right,  mx * SPEED * dt)
+
+      // Clamp to ground
+      player.position.y = 0
+
+      // Rotate player to face movement direction
+      if (mx !== 0 || mz !== 0) {
+        const targetAngle = Math.atan2(
+          fwd.x * (-mz) + right.x * mx,
+          fwd.z * (-mz) + right.z * mx
+        )
+        player.rotation.y += (targetAngle - player.rotation.y) * 0.2
+      }
+
+      // Third-person camera orbit
+      const camDist = 5, camH = 2.5
+      const camOffset = new THREE.Vector3(
+        Math.sin(yaw) * Math.cos(pitch) * camDist,
+        Math.sin(pitch) * camDist + camH,
+        Math.cos(yaw) * Math.cos(pitch) * camDist
+      )
+      const target = player.position.clone().add(new THREE.Vector3(0, 1, 0))
+      camera.position.lerp(target.clone().add(camOffset), 0.15)
+      camera.lookAt(target)
+
+      renderer.render(scene, camera)
+    })
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight
+      camera.updateProjectionMatrix()
+      renderer.setSize(innerWidth, innerHeight)
+    })
+  </script>
 </body>
 </html>
