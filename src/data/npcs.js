@@ -5,8 +5,10 @@
  * Each NPC has:
  *   - id, name, personality (used as Gemini system prompt when off-script)
  *   - voiceId: your ElevenLabs voice ID for this character
+ *   - modelPath: path to the NPC's GLB file in public/assets/ (e.g. '/assets/mira.glb')
+ *                Falls back to a placeholder capsule if the file isn't found.
  *   - spawnPosition: [x, y, z] in your world
- *   - color: hex color for the placeholder mesh
+ *   - color: hex color for the placeholder mesh (used if modelPath is missing/fails)
  *   - script.opening: the very first thing they say + player choice options
  *   - script.responses: map from choice ID → { text, choices }
  *
@@ -25,6 +27,7 @@ You've run the Silver Hare inn for 20 years. You're pragmatic, slightly sarcasti
 and deeply loyal to regular customers. You know local gossip. 
 You speak in short, direct sentences. Never break character.`,
     voiceId:     'EXAVITQu4vr4xnSDxMaL',  // Replace with your ElevenLabs voice ID
+    modelPath:   '/assets/mira.glb',        // Drop your GLB at public/assets/mira.glb
     spawnPosition: [2, 0, -6],
     color:       0x8B6F47,
 
@@ -131,6 +134,7 @@ You're proud of your work but insecure about your skills compared to your master
 You love talking about metallurgy and weapons. You speak with enthusiasm.
 Never break character.`,
     voiceId:     'TxGEqnHWrfWFTfGW9XjX',  // Replace with your ElevenLabs voice ID
+    modelPath:   '/assets/gareth.glb',      // Drop your GLB at public/assets/gareth.glb
     spawnPosition: [-6, 0, -8],
     color:       0x4a5a6a,
 

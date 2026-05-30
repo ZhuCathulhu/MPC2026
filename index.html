@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Movement Test</title>
+  <title>MPC2026</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
@@ -40,15 +40,15 @@
     <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
   </div>
 
-  <div id="hint">WASD to move· Click canvas to look</div>
+  <div id="hint">WASD to move · Click canvas to look</div>
   <div id="joystick-zone"></div>
 
   <script type="importmap">
   {
     "imports": {
-      "three":          "https://unpkg.com/three@0.167.0/build/three.module.js",
-      "three/addons/":  "https://unpkg.com/three@0.167.0/examples/jsm/",
-      "nipplejs":       "https://unpkg.com/nipplejs@0.10.1/dist/nipplejs.mjs"
+      "three":         "https://unpkg.com/three@0.167.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.167.0/examples/jsm/",
+      "nipplejs":      "https://unpkg.com/nipplejs@0.10.1/dist/nipplejs.mjs"
     }
   }
   </script>
@@ -56,7 +56,9 @@
   <script type="module">
     import * as THREE from 'three'
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-    import nipplejs       from 'nipplejs'
+    import nipplejs from 'nipplejs'
+
+    const gltfLoader = new GLTFLoader()
 
     // ── Renderer ──────────────────────────────────────────────────────────
     const renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -88,7 +90,6 @@
 
     // ── Player ────────────────────────────────────────────────────────────
     const player = new THREE.Group()
-
     const body = new THREE.Mesh(
       new THREE.CapsuleGeometry(0.3, 0.8, 4, 8),
       new THREE.MeshLambertMaterial({ color: 0x88aaff })
@@ -96,41 +97,107 @@
     body.position.y = 0.7
     body.castShadow = true
     player.add(body)
-
     const eye = new THREE.Mesh(
       new THREE.SphereGeometry(0.08, 6, 6),
       new THREE.MeshBasicMaterial({ color: 0xffffff })
     )
     eye.position.set(0, 1.1, -0.28)
     player.add(eye)
-
     player.position.set(0, 0, 4)
     scene.add(player)
 
-    // ── Placeholder world (used when no GLB present) ──────────────────────
-    function buildPlaceholder() {
-      const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(40, 40),
-        new THREE.MeshLambertMaterial({ color: 0x2d4a2d })
-      )
-      ground.rotation.x = -Math.PI / 2
-      ground.receiveShadow = true
-      scene.add(ground)
-      scene.add(new THREE.GridHelper(40, 20, 0x3a5a3a, 0x3a5a3a))
+    // ── NPC definitions ───────────────────────────────────────────────────
+    const NPC_DEFS = [
+      {
+        name: 'Mira',
+        modelPath: '/assets/innkeeper.glb',
+        spawnPosition: new THREE.Vector3(2, 0, -6),
+        color: 0x8B6F47,
+      },
+      {
+        name: 'Gareth',
+        modelPath: '/assets/gareth.glb',
+        spawnPosition: new THREE.Vector3(-6, 0, -8),
+        color: 0x4a5a6a,
+      },
+    ]
 
-      const cube = new THREE.Mesh(
-        new THREE.BoxGeometry(1.5, 1.5, 1.5),
-        new THREE.MeshLambertMaterial({ color: 0xe05050 })
-      )
-      cube.position.set(0, 0.75, -8)
-      cube.castShadow = true
-      scene.add(cube)
-      return cube
+    // ── Spawn NPCs ────────────────────────────────────────────────────────
+    const npcs = []   // { group, mixer }
+
+    function buildPlaceholderNPC(color) {
+      const g = new THREE.Group()
+      g.add(Object.assign(
+        new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 1.0, 4, 8), new THREE.MeshLambertMaterial({ color })),
+        { position: { y: 0.95 }, castShadow: true }
+      ))
+      g.add(Object.assign(
+        new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshLambertMaterial({ color: 0xd4a882 })),
+        { position: { y: 1.9 } }
+      ))
+      return g
     }
 
-    // ── Load world.glb or fall back ───────────────────────────────────────
-    let spinTarget = null
+    for (const def of NPC_DEFS) {
+      const root = new THREE.Group()
+      root.position.copy(def.spawnPosition)
+      scene.add(root)
 
+      const entry = { root, mixer: null, name: def.name }
+      npcs.push(entry)
+
+      gltfLoader.load(
+        def.modelPath,
+        (gltf) => {
+          console.log(`[NPC:${def.name}] loaded`)
+          const model = gltf.scene
+
+          // Reset scene-wrapper transform
+          model.position.set(0, 0, 0)
+          model.rotation.set(0, 0, 0)
+          model.scale.set(1, 1, 1)
+
+          // Fix each mesh node
+          model.traverse(obj => {
+            if (!obj.isMesh) return
+
+            // Uniform scale
+            const s = obj.scale
+            if (Math.abs(s.x - s.y) > 0.01 || Math.abs(s.y - s.z) > 0.01) {
+              obj.scale.setScalar(Math.max(s.x, s.y, s.z))
+            }
+
+            // Floor to Y=0
+            obj.geometry.computeBoundingBox()
+            const minY = obj.geometry.boundingBox.min.y * obj.scale.y + obj.position.y
+            if (Math.abs(minY) > 0.01) obj.position.y -= minY
+
+            obj.castShadow = true
+            obj.receiveShadow = true
+
+            // Fallback material
+            if (!obj.material || (Array.isArray(obj.material) && !obj.material.length)) {
+              obj.material = new THREE.MeshLambertMaterial({ color: def.color })
+            }
+          })
+
+          root.add(model)
+
+          // Animations
+          if (gltf.animations && gltf.animations.length) {
+            entry.mixer = new THREE.AnimationMixer(model)
+            entry.mixer.clipAction(gltf.animations[0]).play()
+          }
+        },
+        undefined,
+        (err) => {
+          console.warn(`[NPC:${def.name}] no GLB at ${def.modelPath}, using placeholder`)
+          root.add(buildPlaceholderNPC(def.color))
+        }
+      )
+    }
+
+    // ── World loading ─────────────────────────────────────────────────────
     function dismissLoading() {
       const el = document.getElementById('loading')
       if (!el) return
@@ -138,14 +205,12 @@
       setTimeout(() => el.remove(), 700)
     }
 
-    const gltfLoader = new GLTFLoader()
+    let spinTarget = null
 
     gltfLoader.load(
       '/assets/world.glb',
       (gltf) => {
-        gltf.scene.traverse(o => {
-          if (o.isMesh) { o.castShadow = true; o.receiveShadow = true }
-        })
+        gltf.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
         scene.add(gltf.scene)
         dismissLoading()
       },
@@ -157,37 +222,45 @@
         }
       },
       () => {
-        // No GLB found — use placeholder
-        console.info('No /assets/world.glb found — using placeholder')
-        spinTarget = buildPlaceholder()
+        console.info('No world.glb — using placeholder')
+        const ground = new THREE.Mesh(
+          new THREE.PlaneGeometry(40, 40),
+          new THREE.MeshLambertMaterial({ color: 0x2d4a2d })
+        )
+        ground.rotation.x = -Math.PI / 2
+        ground.receiveShadow = true
+        scene.add(ground)
+        scene.add(new THREE.GridHelper(40, 20, 0x3a5a3a, 0x3a5a3a))
+        const cube = new THREE.Mesh(
+          new THREE.BoxGeometry(1.5, 1.5, 1.5),
+          new THREE.MeshLambertMaterial({ color: 0xe05050 })
+        )
+        cube.position.set(0, 0.75, -8)
+        cube.castShadow = true
+        scene.add(cube)
+        spinTarget = cube
         dismissLoading()
       }
     )
 
-    // ── Pointer lock + Shift toggle ────────────────────────────────────────
+    // ── Pointer lock ──────────────────────────────────────────────────────
     let mouseLocked = false
-
     renderer.domElement.addEventListener('click', () => {
       if (!mouseLocked) renderer.domElement.requestPointerLock()
     })
-
     document.addEventListener('pointerlockchange', () => {
       mouseLocked = document.pointerLockElement === renderer.domElement
       document.getElementById('hint').textContent = mouseLocked
         ? 'WASD to move · Shift to release mouse'
         : 'WASD to move · Click canvas to look'
     })
-
-    // Shift releases pointer lock (gives back the cursor)
     addEventListener('keydown', e => {
-      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-        if (mouseLocked) document.exitPointerLock()
-      }
+      if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && mouseLocked)
+        document.exitPointerLock()
     })
 
     // ── Mouse look ────────────────────────────────────────────────────────
     let yaw = 0, pitch = 0
-
     addEventListener('mousemove', e => {
       if (!mouseLocked) return
       yaw   -= e.movementX * 0.002
@@ -195,9 +268,9 @@
       pitch  = Math.max(-0.5, Math.min(0.4, pitch))
     })
 
-    // ── Keyboard input ────────────────────────────────────────────────────
+    // ── Keyboard ──────────────────────────────────────────────────────────
     const keys = {}
-    addEventListener('keydown', e => { keys[e.code] = true  })
+    addEventListener('keydown', e => { keys[e.code] = true })
     addEventListener('keyup',   e => { keys[e.code] = false })
 
     // ── Joystick ──────────────────────────────────────────────────────────
@@ -215,29 +288,34 @@
     const SPEED = 5
 
     renderer.setAnimationLoop(() => {
-      const dt = Math.min(clock.getDelta(), 0.1)  // cap delta so big pauses don't teleport
+      const dt = Math.min(clock.getDelta(), 0.1)
 
       if (spinTarget) spinTarget.rotation.y += dt * 0.8
 
-      // Movement vector
-      let mx = joyX, mz = joyZ
-      if (keys['KeyW'] || keys['ArrowUp'])    mz -= 1
-      if (keys['KeyS'] || keys['ArrowDown'])  mz += 1
-      if (keys['KeyA'] || keys['ArrowLeft'])  mx -= 1
-      if (keys['KeyD'] || keys['ArrowRight']) mx += 1
+      // NPC: face player + tick animations
+      for (const npc of npcs) {
+        const dir = player.position.clone().sub(npc.root.position)
+        dir.y = 0
+        if (dir.lengthSq() > 0.01)
+          npc.root.rotation.y += (Math.atan2(dir.x, dir.z) - npc.root.rotation.y) * 0.05
+        if (npc.mixer) npc.mixer.update(dt)
+      }
 
+      // Movement
+      let mx = joyX, mz = joyZ
+      if (keys['KeyW']  || keys['ArrowUp'])    mz -= 1
+      if (keys['KeyS']  || keys['ArrowDown'])  mz += 1
+      if (keys['KeyA']  || keys['ArrowLeft'])  mx -= 1
+      if (keys['KeyD']  || keys['ArrowRight']) mx += 1
       const len = Math.sqrt(mx * mx + mz * mz)
       if (len > 1) { mx /= len; mz /= len }
 
-      // Camera-relative directions
       const fwd   = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw))
       const right = new THREE.Vector3( Math.cos(yaw), 0, -Math.sin(yaw))
+      player.position.addScaledVector(fwd,  -mz * SPEED * dt)
+      player.position.addScaledVector(right, mx * SPEED * dt)
+      player.position.y = 0
 
-      player.position.addScaledVector(fwd,   -mz * SPEED * dt)
-      player.position.addScaledVector(right,  mx * SPEED * dt)
-      player.position.y = 0   // keep on ground
-
-      // Face movement direction
       if (mx !== 0 || mz !== 0) {
         const angle = Math.atan2(
           fwd.x * (-mz) + right.x * mx,
@@ -246,7 +324,7 @@
         player.rotation.y += (angle - player.rotation.y) * 0.2
       }
 
-      // Third-person camera
+      // Camera
       const camDist = 5, camH = 2.5
       const offset = new THREE.Vector3(
         Math.sin(yaw) * Math.cos(pitch) * camDist,
