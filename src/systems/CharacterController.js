@@ -116,41 +116,60 @@ export class CharacterController {
   _resolveCollisions() {
     if (!this.collider?.geometry?.boundsTree) return
 
-    // Build capsule positions from current player position
-    const halfH = (CAPSULE_HEIGHT / 2) - CAPSULE_RADIUS
-    this.capsuleBottom.copy(this.position).y -= halfH
-    this.capsuleTop.copy(this.position).y    += halfH
-
-    const result = this.collider.geometry.boundsTree.capsulecast(
-      this.capsuleBottom,
-      this.capsuleTop,
-      CAPSULE_RADIUS,
-      this.collider.matrixWorld
+    const HALF = CAPSULE_HEIGHT / 2
+    const segment = new THREE.Line3(
+      this.position.clone().add(new THREE.Vector3(0, CAPSULE_RADIUS, 0)),
+      this.position.clone().add(new THREE.Vector3(0, HALF, 0))
     )
 
-    if (result) {
-      const depth  = result.depth
-      const normal = result.normal
+    const capsuleAABB = new THREE.Box3()
+    capsuleAABB.setFromCenterAndSize(
+      this.position.clone().add(new THREE.Vector3(0, HALF / 2, 0)),
+      new THREE.Vector3(
+        CAPSULE_RADIUS * 2 + 0.1,
+        CAPSULE_HEIGHT + 0.1,
+        CAPSULE_RADIUS * 2 + 0.1
+      )
+    )
 
-      // If normal points up-ish → we're standing on something
-      if (normal.y > 0.5) {
-        this.onGround = true
-        this.velocity.y = Math.max(0, this.velocity.y)
+    let didCollide = false
+
+    this.collider.geometry.boundsTree.shapecast({
+      intersectsBounds: (box) => box.intersectsBox(capsuleAABB),
+      intersectsTriangle: (tri) => {
+        const point  = new THREE.Vector3()
+        const onLine = new THREE.Vector3()
+
+        tri.closestPointToSegment(segment, point, onLine)
+        const dist = point.distanceTo(onLine)
+
+        if (dist < CAPSULE_RADIUS) {
+          const push = onLine.clone().sub(point).normalize()
+          const depth = CAPSULE_RADIUS - dist
+          this.position.addScaledVector(push, depth)
+
+          // Rebuild segment after push
+          segment.start.copy(this.position).add(new THREE.Vector3(0, CAPSULE_RADIUS, 0))
+          segment.end.copy(this.position).add(new THREE.Vector3(0, HALF, 0))
+
+          if (push.y > 0.5) {
+            this.onGround = true
+            this.velocity.y = Math.max(0, this.velocity.y)
+          }
+          didCollide = true
+        }
       }
+    })
 
-      // Push out of collision
-      this.position.addScaledVector(normal, depth)
-    } else {
-      this.onGround = false
-    }
+    if (!didCollide) this.onGround = false
 
-    // World floor safety net
+    // Safety net
     if (this.position.y < -20) {
       this.position.set(0, 2, 0)
       this.velocity.set(0, 0, 0)
     }
   }
-
+  
   _updateCamera() {
     // Orbit camera around player
     const offset = new THREE.Vector3(

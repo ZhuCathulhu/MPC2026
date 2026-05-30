@@ -106,6 +106,32 @@
     player.position.set(0, 0, 4)
     scene.add(player)
 
+    // ── Collision raycaster ───────────────────────────────────────────────
+    // Shoots straight down from above the player every frame.
+    // worldMeshes is populated once the world GLB loads.
+    const floorRay = new THREE.Raycaster()
+    floorRay.far = 6          // only look 6 units below origin point
+    let worldMeshes = []      // flat list of Mesh objects to test against
+
+    function snapPlayerToFloor() {
+      if (worldMeshes.length === 0) {
+        player.position.y = 0
+        return
+      }
+      // Cast from 3 units above the player's feet downward
+      floorRay.set(
+        new THREE.Vector3(player.position.x, player.position.y + 3, player.position.z),
+        new THREE.Vector3(0, -1, 0)
+      )
+      const hits = floorRay.intersectObjects(worldMeshes, false)
+      if (hits.length > 0) {
+        player.position.y = hits[0].point.y
+      } else {
+        // No floor found — hold last Y so the player doesn't fall through
+        // (you can change this to gravity if you want falling)
+      }
+    }
+
     // ── NPC definitions ───────────────────────────────────────────────────
     const NPC_DEFS = [
       {
@@ -123,7 +149,7 @@
     ]
 
     // ── Spawn NPCs ────────────────────────────────────────────────────────
-    const npcs = []   // { group, mixer }
+    const npcs = []
 
     function buildPlaceholderNPC(color) {
       const g = new THREE.Group()
@@ -149,51 +175,31 @@
       gltfLoader.load(
         def.modelPath,
         (gltf) => {
-          console.log(`[NPC:${def.name}] loaded`)
           const model = gltf.scene
-
-          // Reset scene-wrapper transform
           model.position.set(0, 0, 0)
           model.rotation.set(0, 0, 0)
           model.scale.set(1, 1, 1)
-
-          // Fix each mesh node
           model.traverse(obj => {
             if (!obj.isMesh) return
-
-            // Uniform scale
             const s = obj.scale
-            if (Math.abs(s.x - s.y) > 0.01 || Math.abs(s.y - s.z) > 0.01) {
+            if (Math.abs(s.x - s.y) > 0.01 || Math.abs(s.y - s.z) > 0.01)
               obj.scale.setScalar(Math.max(s.x, s.y, s.z))
-            }
-
-            // Floor to Y=0
             obj.geometry.computeBoundingBox()
             const minY = obj.geometry.boundingBox.min.y * obj.scale.y + obj.position.y
             if (Math.abs(minY) > 0.01) obj.position.y -= minY
-
             obj.castShadow = true
             obj.receiveShadow = true
-
-            // Fallback material
-            if (!obj.material || (Array.isArray(obj.material) && !obj.material.length)) {
+            if (!obj.material || (Array.isArray(obj.material) && !obj.material.length))
               obj.material = new THREE.MeshLambertMaterial({ color: def.color })
-            }
           })
-
           root.add(model)
-
-          // Animations
           if (gltf.animations && gltf.animations.length) {
             entry.mixer = new THREE.AnimationMixer(model)
             entry.mixer.clipAction(gltf.animations[0]).play()
           }
         },
         undefined,
-        (err) => {
-          console.warn(`[NPC:${def.name}] no GLB at ${def.modelPath}, using placeholder`)
-          root.add(buildPlaceholderNPC(def.color))
-        }
+        () => root.add(buildPlaceholderNPC(def.color))
       )
     }
 
@@ -210,7 +216,13 @@
     gltfLoader.load(
       '/assets/world.glb',
       (gltf) => {
-        gltf.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
+        gltf.scene.traverse(o => {
+          if (o.isMesh) {
+            o.castShadow = true
+            o.receiveShadow = true
+            worldMeshes.push(o)   // ← collect every mesh for raycasting
+          }
+        })
         scene.add(gltf.scene)
         dismissLoading()
       },
@@ -222,6 +234,7 @@
         }
       },
       () => {
+        // No world.glb — build placeholder and register its meshes
         console.info('No world.glb — using placeholder')
         const ground = new THREE.Mesh(
           new THREE.PlaneGeometry(40, 40),
@@ -230,7 +243,10 @@
         ground.rotation.x = -Math.PI / 2
         ground.receiveShadow = true
         scene.add(ground)
+        worldMeshes.push(ground)   // ← register placeholder ground
+
         scene.add(new THREE.GridHelper(40, 20, 0x3a5a3a, 0x3a5a3a))
+
         const cube = new THREE.Mesh(
           new THREE.BoxGeometry(1.5, 1.5, 1.5),
           new THREE.MeshLambertMaterial({ color: 0xe05050 })
@@ -238,6 +254,7 @@
         cube.position.set(0, 0.75, -8)
         cube.castShadow = true
         scene.add(cube)
+        worldMeshes.push(cube)     // ← register cube too (player can walk on top)
         spinTarget = cube
         dismissLoading()
       }
@@ -312,9 +329,32 @@
 
       const fwd   = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw))
       const right = new THREE.Vector3( Math.cos(yaw), 0, -Math.sin(yaw))
+
+      // ── Wall collision ───────────────────────────────────────────────────
+      // Before moving, cast a ray in the intended direction at chest height.
+      // If a wall is within PLAYER_RADIUS, cancel that axis of movement.
+      const PLAYER_RADIUS = 0.5
+      const wallRay = new THREE.Raycaster()
+      const chestPos = player.position.clone().add(new THREE.Vector3(0, 1, 0))
+
+      if (mz !== 0 && worldMeshes.length > 0) {
+        const dir = fwd.clone().multiplyScalar(-mz).normalize()
+        wallRay.set(chestPos, dir)
+        wallRay.far = PLAYER_RADIUS
+        if (wallRay.intersectObjects(worldMeshes, false).length > 0) mz = 0
+      }
+      if (mx !== 0 && worldMeshes.length > 0) {
+        const dir = right.clone().multiplyScalar(mx).normalize()
+        wallRay.set(chestPos, dir)
+        wallRay.far = PLAYER_RADIUS
+        if (wallRay.intersectObjects(worldMeshes, false).length > 0) mx = 0
+      }
+
       player.position.addScaledVector(fwd,  -mz * SPEED * dt)
       player.position.addScaledVector(right, mx * SPEED * dt)
-      player.position.y = 0
+
+      // ── Floor collision (replaces hard player.position.y = 0) ───────────
+      snapPlayerToFloor()
 
       if (mx !== 0 || mz !== 0) {
         const angle = Math.atan2(
