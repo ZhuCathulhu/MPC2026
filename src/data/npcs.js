@@ -29,8 +29,8 @@ You've run the Silver Hare inn for 20 years. You're pragmatic, slightly sarcasti
 and deeply loyal to regular customers. You know local gossip.
 You speak in short, direct sentences. Never break character.`,
     voiceId:     'EXAVITQu4vr4xnSDxMaL',
-    modelPath:   '/assets/mira.glb',
-    spawnPosition: [2, -3, -6],
+    modelPath:   '/assets/base.glb',
+    spawnPosition: [2, 0, -6],
     color:       0x8B6F47,
 
     script: {
@@ -169,7 +169,7 @@ You're proud of your work but insecure about your skills compared to your master
 You love talking about metallurgy and weapons. You speak with enthusiasm.
 Never break character.`,
     voiceId:     'TxGEqnHWrfWFTfGW9XjX',
-    modelPath:   '/assets/gareth.glb',
+    modelPath:   '/assets/base.glb',
     spawnPosition: [-6, 0, -8],
     color:       0x4a5a6a,
 

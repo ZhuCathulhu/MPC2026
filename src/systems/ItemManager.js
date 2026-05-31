@@ -73,10 +73,10 @@ export class ItemManager {
           this._addGlow(root, itemData.color ?? 0xffffff)
         },
         undefined,
-        () => this._buildGemMesh(root, itemData)
+        () => this._buildGemMesh(root, itemData, entry)
       )
     } else {
-      this._buildGemMesh(root, itemData)
+      this._buildGemMesh(root, itemData, entry)
     }
 
     // Pickup radius indicator (thin ring on the ground)
@@ -95,7 +95,7 @@ export class ItemManager {
     entry.ring = ring
   }
 
-  _buildGemMesh(root, itemData) {
+  _buildGemMesh(root, itemData, entry) {
     const geo = new THREE.OctahedronGeometry(0.22, 0)
     const mat = new THREE.MeshLambertMaterial({
       color:       itemData.color ?? 0xffffff,

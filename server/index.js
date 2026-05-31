@@ -19,10 +19,6 @@ app.use('/api/save',     saveRouter)
 
 app.get('/api/health', (_, res) => res.json({ ok: true }))
 
-// Boot
-async function start() {
-  await connectDB()
-  app.listen(PORT, () => console.log(`[Server] http://localhost:${PORT}`))
-}
-
-start().catch(console.error)
+// Boot — listen immediately, connect DB in background
+app.listen(PORT, () => console.log(`[Server] http://localhost:${PORT}`))
+connectDB().catch(err => console.error('[DB] Connection error:', err))

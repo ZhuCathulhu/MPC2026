@@ -33,19 +33,23 @@ export class InventoryManager extends EventTarget {
   // ── Persistence ────────────────────────────────────────────────────────────
 
   /** Load save from MongoDB. Call once on game boot. */
-  async load() {
-    try {
-      const res = await fetch(`/api/save/${this.playerId}`)
-      if (!res.ok) return
-      const data = await res.json()
-      if (!data) return                      // brand-new player
-      this._items = data.inventory ?? {}
-      this._flags = data.flags     ?? {}
-      console.log('[Inventory] Loaded:', this._items, this._flags)
-      this._emit()
-    } catch (err) {
-      console.warn('[Inventory] Could not load save:', err.message)
+  async load(retries = 5, delay = 800) {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const res = await fetch(`/api/save/${this.playerId}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!data) return
+        this._items = data.inventory ?? {}
+        this._flags = data.flags     ?? {}
+        this._emit()
+        return
+      } catch (err) {
+        console.warn(`[Inventory] Load attempt ${i + 1} failed:`, err.message)
+        if (i < retries - 1) await new Promise(r => setTimeout(r, delay))
+      }
     }
+    console.warn('[Inventory] Could not load save after retries — starting fresh')
   }
 
   /** Debounced save — fires 1 s after the last change */

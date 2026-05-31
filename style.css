@@ -18,9 +18,20 @@ body > canvas {
   opacity: 0;
   transition: opacity 0.8s;
 }
-body.game-active > canvas {
+
+#app {
+  position: fixed; inset: 0;
+  pointer-events: none;
+}
+#app canvas {
+  pointer-events: all;
+  opacity: 0;
+  transition: opacity 0.8s;
+}
+body.game-active #app canvas {
   opacity: 1;
 }
+
 
 
 /* ── Animations ────────────────────────────────────────────── */
@@ -244,7 +255,7 @@ button {
 }
 
 /* ── Talk button (mobile) ──────────────────────────────────── */
-#talk-btn {
+#btn-talk {
   position: fixed; bottom: 40px; right: 30px;
   width: 64px; height: 64px; border-radius: 50%;
   border: 2px solid rgba(120,200,160,0.8);
@@ -256,8 +267,21 @@ button {
   align-items: center; justify-content: center;
   touch-action: manipulation;
 }
-#talk-btn.visible { display: flex; }
+#btn-talk.visible { display: flex; }
 
+#btn-jump {
+  position: fixed; bottom: 40px; right: 120px;
+  width: 64px; height: 64px; border-radius: 50%;
+  border: 2px solid rgba(200,184,154,0.8);
+  background: rgba(0,0,0,0.35);
+  color: rgba(200,184,154,0.8);
+  font: 700 11px/1 Georgia, serif;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; display: none; z-index: 20;
+  align-items: center; justify-content: center;
+  touch-action: manipulation;
+}
+#btn-jump.visible { display: flex; }
 
 /* ── Virtual joystick ──────────────────────────────────────── */
 #joystick-zone {
