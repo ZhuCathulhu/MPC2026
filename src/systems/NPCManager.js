@@ -2,7 +2,9 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { NPCS } from '../data/npcs.js'
 
-const INTERACT_RANGE = 3.0    // metres
+const INTERACT_RANGE  = 3.0    // metres
+const PUSH_RADIUS     = 0.8    // metres — how close before repulsion kicks in
+const PUSH_STRENGTH   = 1.0    // how hard the player is nudged away
 
 const _gltfLoader = new GLTFLoader()
 
@@ -33,6 +35,15 @@ export class NPCManager {
 
       const dist = playerPos.distanceTo(npc.getPosition())
       npc.setPromptVisible(dist < INTERACT_RANGE)
+
+      // ── NPC–player collision repulsion ──────────────────────────────────
+      if (dist < PUSH_RADIUS && dist > 0.001) {
+        const push = new THREE.Vector3()
+          .subVectors(playerPos, npc.getPosition())
+        push.y = 0
+        push.normalize().multiplyScalar((PUSH_RADIUS - dist) * PUSH_STRENGTH)
+        this.character.position.add(push)
+      }
 
       if (dist < INTERACT_RANGE && this.character.input.consumeInteract()) {
         this.dialogue.startConversation(npc)

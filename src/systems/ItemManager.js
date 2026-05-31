@@ -159,6 +159,7 @@ export class ItemManager {
 
     // Add to inventory
     this.inventory.add(entry.def.itemId)
+    this.inventory.dispatchEvent(new CustomEvent('item-collected', { detail: { itemId: entry.def.itemId } }))
 
     // Mark as collected so it doesn't respawn
     if (entry.def.oneShot) {

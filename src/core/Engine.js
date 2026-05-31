@@ -8,6 +8,7 @@ import { DialogueSystem }      from '../systems/DialogueSystem.js'
 import { NPCManager }          from '../systems/NPCManager.js'
 import { ItemManager }         from '../systems/ItemManager.js'
 import { InventoryManager }    from '../systems/InventoryManager.js'
+import { AudioManager }        from '../systems/AudioManager.js'
 import { WORLD_ITEMS }         from '../data/worldItems.js'
 
 const STORY_SLIDES = [
@@ -28,6 +29,7 @@ export class Engine {
     this.npcs       = null
     this.items      = null
     this.inventory  = null
+    this.audio      = null
     this.collider   = null
     this.worldGroup = null
     this._gameRunning  = false
@@ -48,7 +50,9 @@ export class Engine {
 
     this.input    = new InputManager()
     this.dialogue = new DialogueSystem(this.inventory)
+    this.audio    = new AudioManager()
     this._setupDialogueUI()
+    this._setupAudio()
 
     await this._loadWorld()
 
@@ -77,6 +81,45 @@ export class Engine {
 
     this._startLoop()
     window.addEventListener('resize', () => this._onResize())
+  }
+
+  // ── Audio setup ────────────────────────────────────────────────────────────
+
+  _setupAudio() {
+    // ── Positional ambient sounds ──────────────────────────────────────────
+    // Add looping ambient sounds tied to world positions.
+    // Files must exist at /public/assets/audio/<filename>
+    // Format: this.audio.addPositional(id, file, [x, y, z], maxDistanceMetres)
+
+    // Example — uncomment and point at your actual files:
+    // this.audio.addPositional('mill_ambience',   'mill_loop.mp3',    [8,  0, -14], 14)
+    // this.audio.addPositional('market_chatter',  'market_loop.mp3',  [0,  0,  0],  20)
+    // this.audio.addPositional('harbor_waves',    'waves_loop.mp3',   [-10, 0, 10], 18)
+
+    // ── Interaction sound ──────────────────────────────────────────────────
+    // Played whenever the player presses E/F or the Talk button.
+    // Hook is in InputManager via the interact event below.
+    this._onInteractSound = () => {
+      this.audio.playOneShot('interact.mp3', 0.6)
+    }
+
+    // ── Item pickup sound ──────────────────────────────────────────────────
+    this.inventory.addEventListener('item-collected', () => {
+      this.audio.playOneShot('item_pickup.mp3', 0.8)
+    })
+
+    this.audio.addPositional('water', 'water.mp3', [5, 0, -4], 20)
+
+    this.dialogue.addEventListener('item-gained', (e) => {
+    console.log('[Audio] item-gained fired', e.detail)
+    this.audio.playOneShot('item_pickup.mp3', 0.8)
+  })
+
+  }
+
+  // Called from _enterGame so the AudioContext is created after a user gesture
+  _startAudio() {
+    this.audio.start()
   }
 
   _setupRenderer() {
@@ -253,6 +296,7 @@ _renderSlide() {
 
       this.input.initJoystick()
       this._gameRunning = true
+      this._startAudio()   // AudioContext created here — after user gesture
     }, 600)
   }
 
@@ -394,6 +438,8 @@ _renderSlide() {
       document.getElementById('joystick-zone').classList.remove('visible')
       document.getElementById('btn-jump').classList.remove('visible')
       document.getElementById('btn-talk').classList.remove('visible')
+      // Play interact sound when conversation begins
+      if (this._onInteractSound) this._onInteractSound()
     })
 
     const sendFree = () => {
@@ -412,7 +458,7 @@ _renderSlide() {
     document.addEventListener('pointerlockchange', () => {
       const locked = document.pointerLockElement === this.renderer.domElement
       document.getElementById('hint').textContent = locked
-        ? 'WASD to move · Esc to release mouse'
+        ? 'WASD to move · Shift to release mouse'
         : 'WASD to move · Click canvas to look'
     })
   }
@@ -476,6 +522,7 @@ _renderSlide() {
       this.character.update(delta)
       this.npcs.update(delta)
       this.items.update(delta, this.character.getPosition())
+      this.audio.update(this.character.getPosition())
       this.renderer.render(this.scene, this.camera)
     })
   }
