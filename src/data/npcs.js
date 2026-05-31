@@ -16,7 +16,7 @@
  * doesn't match a choice ID here. It uses `personality` as the system prompt.
  *
  * To add a new NPC, copy one of the objects below and add it to the array.
- */
+ 
 
 export const NPCS = [
   {
@@ -28,7 +28,7 @@ and deeply loyal to regular customers. You know local gossip.
 You speak in short, direct sentences. Never break character.`,
     voiceId:     'EXAVITQu4vr4xnSDxMaL',  // Replace with your ElevenLabs voice ID
     modelPath:   '/assets/mira.glb',        // Drop your GLB at public/assets/mira.glb
-    spawnPosition: [2, 0, -6],
+    spawnPosition: [2, -3, -6],
     color:       0x8B6F47,
 
     script: {
@@ -186,3 +186,4 @@ Never break character.`,
     }
   }
 ]
+  */

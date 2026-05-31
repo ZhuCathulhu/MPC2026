@@ -32,6 +32,109 @@
     #loading.hidden { opacity: 0; pointer-events: none; }
     #loading-bar-wrap { width: 200px; height: 2px; background: #222; border-radius: 1px; overflow: hidden; }
     #loading-bar { height: 100%; background: #666; width: 0%; transition: width 0.2s; }
+
+    /* ── Talk button (mobile) ── */
+    #talk-btn {
+      position: fixed; bottom: 40px; right: 30px;
+      width: 64px; height: 64px; border-radius: 50%;
+      border: 2px solid rgba(120,200,160,0.8);
+      background: rgba(0,0,0,0.4);
+      color: rgba(120,200,160,0.9);
+      font: 700 11px/1 Georgia, serif;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      cursor: pointer; display: none; z-index: 20;
+      align-items: center; justify-content: center;
+      touch-action: manipulation;
+    }
+    #talk-btn.visible { display: flex; }
+
+    /* ── Dialogue box ── */
+    #dialogue-box {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 0 0 env(safe-area-inset-bottom);
+      z-index: 200; display: none;
+      animation: slide-up 0.22s ease;
+    }
+    #dialogue-box.open { display: block; }
+    @keyframes slide-up {
+      from { transform: translateY(16px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    #dialogue-inner {
+      margin: 0 auto; max-width: 760px;
+      background: linear-gradient(180deg, rgba(10,8,6,0.94) 0%, rgba(6,5,3,0.98) 100%);
+      border-top: 1px solid rgba(200,184,154,0.3);
+      border-left: 1px solid rgba(200,184,154,0.12);
+      border-right: 1px solid rgba(200,184,154,0.12);
+      border-radius: 12px 12px 0 0;
+      padding: 18px 24px 22px;
+      backdrop-filter: blur(10px);
+    }
+    #dialogue-speaker {
+      font: 600 0.7rem/1 Georgia, serif;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: #c8b89a; margin-bottom: 8px; opacity: 0.85;
+    }
+    #dialogue-text {
+      font: 400 1.2rem/1.6 Georgia, serif;
+      color: #e8ddd0; min-height: 2.4em; margin-bottom: 14px;
+    }
+    #dialogue-text.thinking::after {
+      content: ''; display: inline-block;
+      width: 4px; height: 4px; border-radius: 50%;
+      background: #c8b89a; margin-left: 6px;
+      animation: pulse 0.8s ease infinite; vertical-align: middle;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:0.3; transform:scale(0.8); }
+      50%      { opacity:1;   transform:scale(1.2); }
+    }
+    #dialogue-choices {
+      display: flex; flex-direction: column; gap: 5px;
+      border-top: 1px solid rgba(200,184,154,0.1);
+      padding-top: 12px;
+    }
+    .choice-btn {
+      background: none;
+      border: 1px solid rgba(200,184,154,0.16);
+      border-radius: 6px; color: #c8d4b0;
+      font: 400 1rem/1.4 Georgia, serif;
+      padding: 7px 14px; text-align: left;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+    }
+    .choice-btn::before { content: '›'; margin-right: 9px; color: rgba(200,184,154,0.45); }
+    .choice-btn:hover { background: rgba(200,184,154,0.07); border-color: rgba(200,184,154,0.38); color: #e8ddd0; }
+    .choice-btn[data-id="__end__"] { color: rgba(200,184,154,0.45); border-color: rgba(200,184,154,0.08); }
+    .choice-btn[data-id="__end__"]:hover { color: rgba(200,184,154,0.85); }
+
+    /* Free-text input */
+    #dialogue-free-wrap {
+      display: flex; gap: 8px;
+      margin-top: 10px;
+      border-top: 1px solid rgba(200,184,154,0.08);
+      padding-top: 10px;
+    }
+    #dialogue-free-input {
+      flex: 1;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(200,184,154,0.18);
+      border-radius: 6px; color: #e8ddd0;
+      font: 400 1rem/1 Georgia, serif;
+      padding: 7px 11px; outline: none;
+      transition: border-color 0.14s;
+    }
+    #dialogue-free-input:focus { border-color: rgba(200,184,154,0.48); }
+    #dialogue-free-input::placeholder { color: rgba(200,184,154,0.22); font-style: italic; }
+    #dialogue-free-send {
+      background: rgba(200,184,154,0.09);
+      border: 1px solid rgba(200,184,154,0.22);
+      border-radius: 6px; color: #c8b89a;
+      font: 400 0.88rem/1 Georgia, serif;
+      padding: 7px 13px; cursor: pointer;
+      transition: background 0.12s;
+    }
+    #dialogue-free-send:hover { background: rgba(200,184,154,0.17); }
   </style>
 </head>
 <body>
@@ -42,6 +145,20 @@
 
   <div id="hint">WASD to move · Click canvas to look</div>
   <div id="joystick-zone"></div>
+  <button id="talk-btn">Talk</button>
+
+  <!-- Dialogue overlay -->
+  <div id="dialogue-box">
+    <div id="dialogue-inner">
+      <div id="dialogue-speaker"></div>
+      <div id="dialogue-text"></div>
+      <div id="dialogue-choices"></div>
+      <div id="dialogue-free-wrap">
+        <input id="dialogue-free-input" type="text" placeholder="Say something else…" maxlength="200" />
+        <button id="dialogue-free-send">Ask</button>
+      </div>
+    </div>
+  </div>
 
   <script type="importmap">
   {
@@ -106,62 +223,255 @@
     player.position.set(0, 0, 4)
     scene.add(player)
 
-    // ── Collision raycaster ───────────────────────────────────────────────
-    // Shoots straight down from above the player every frame.
-    // worldMeshes is populated once the world GLB loads.
+    // ── Floor raycaster ───────────────────────────────────────────────────
     const floorRay = new THREE.Raycaster()
-    floorRay.far = 6          // only look 6 units below origin point
-    let worldMeshes = []      // flat list of Mesh objects to test against
+    floorRay.far = 6
+    let worldMeshes = []
 
     function snapPlayerToFloor() {
-      if (worldMeshes.length === 0) {
-        player.position.y = 0
-        return
-      }
-      // Cast from 3 units above the player's feet downward
+      if (worldMeshes.length === 0) { player.position.y = 0; return }
       floorRay.set(
         new THREE.Vector3(player.position.x, player.position.y + 3, player.position.z),
         new THREE.Vector3(0, -1, 0)
       )
       const hits = floorRay.intersectObjects(worldMeshes, false)
-      if (hits.length > 0) {
-        player.position.y = hits[0].point.y
-      } else {
-        // No floor found — hold last Y so the player doesn't fall through
-        // (you can change this to gravity if you want falling)
-      }
+      if (hits.length > 0) player.position.y = hits[0].point.y
     }
 
-    // ── NPC definitions ───────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════
+    // NPC DEFINITIONS  ←  edit your dialogue here
+    // ════════════════════════════════════════════════════════════════════
     const NPC_DEFS = [
       {
+        id: 'innkeeper',
         name: 'Mira',
+        // personality is sent to the AI when the player types a free-text question
+        personality: `You are Mira, a tired but warm innkeeper in a medieval fantasy village.
+You have run the Silver Hare inn for 20 years. You are pragmatic, slightly sarcastic,
+and deeply loyal to regulars. You know local gossip. Speak in short, direct sentences.
+Never break character.`,
         modelPath: '/assets/innkeeper.glb',
-        spawnPosition: new THREE.Vector3(2, 0, -6),
+        spawnPosition: new THREE.Vector3(2, -2, -6),
         color: 0x8B6F47,
+        script: {
+          opening: {
+            text: "You look like you've been walking for days. Hungry?",
+            choices: [
+              { id: 'hungry_yes', label: 'Starving, actually.' },
+              { id: 'hungry_no',  label: "I'm fine. What's going on in town?" },
+              { id: 'room',       label: 'I need a room for the night.' },
+              { id: '__end__',    label: 'Just passing through.' },
+            ]
+          },
+          responses: {
+            hungry_yes: {
+              text: "Stew's two copper. Sit down, I'll bring it over.",
+              choices: [
+                { id: 'pay',     label: 'Here, take it.' },
+                { id: 'broke',   label: "I don't have any coin." },
+                { id: '__end__', label: 'Actually, I need to go.' },
+              ]
+            },
+            hungry_no: {
+              text: "Ha. Town's a mess. Old Rennick's mill burned three nights ago. Nobody knows why.",
+              choices: [
+                { id: 'mill_more', label: 'A mill fire? Was anyone hurt?' },
+                { id: 'rennick',   label: 'Who is Rennick?' },
+                { id: '__end__',   label: 'Interesting. Thanks.' },
+              ]
+            },
+            room: {
+              text: "Eight copper a night. Includes breakfast. I don't run a charity.",
+              choices: [
+                { id: 'take_room',  label: "Deal. I'll take it." },
+                { id: 'negotiate',  label: 'Can you do six?' },
+                { id: '__end__',    label: 'Too rich for me.' },
+              ]
+            },
+            pay:       { text: "Good. Don't spill it on my floor.",          choices: [{ id:'__end__', label:"Wouldn't dream of it." }] },
+            broke:     { text: "Then you're eating air. I'm not a charity.", choices: [{ id:'beg', label:"Please — I haven't eaten in two days." }, { id:'__end__', label:'Fair enough.' }] },
+            beg:       { text: "...Fine. One bowl. You owe me.",              choices: [{ id:'__end__', label:'Thank you. Truly.' }] },
+            mill_more: { text: "Old Harren lost two fingers trying to drag his grandson out. The boy's fine. Harren's not.", choices: [{ id:'cause', label:"What caused it?" }, { id:'__end__', label:'That sounds terrible.' }] },
+            cause:     { text: "That's the question, isn't it. Some say lightning. I say lightning doesn't smell like sulfur.", choices: [{ id:'sulfur', label:'Sulfur? Like brimstone?' }, { id:'__end__', label:"I'll look into it." }] },
+            sulfur:    { text: "Don't go looking into things you can't unlearn. That's my advice.",                            choices: [{ id:'__end__', label:'Noted.' }] },
+            rennick:   { text: "Richest man in three villages. Owns half the farmland. Not well liked, but the mill keeps people fed.", choices: [{ id:'rennick_where', label:'Where does he live?' }, { id:'__end__', label:'I see. Thanks.' }] },
+            rennick_where: { text: "Manor up the north road. Big iron gate. You can't miss it — or the guards.", choices: [{ id:'__end__', label:"I'll keep that in mind." }] },
+            take_room: { text: "Room three, top of the stairs. Key's on the hook. Breakfast at dawn.", choices: [{ id:'__end__', label:'Thank you, Mira.' }] },
+            negotiate: { text: "Seven, and that's my final word.", choices: [{ id:'take_room', label:"Alright. Seven it is." }, { id:'__end__', label:"No deal." }] },
+          }
+        }
       },
       {
+        id: 'blacksmith',
         name: 'Gareth',
+        personality: `You are Gareth, a young eager blacksmith apprentice.
+You are proud of your work but insecure about your skills vs your master.
+You love talking about metallurgy and weapons. Speak with enthusiasm.
+Never break character.`,
         modelPath: '/assets/gareth.glb',
         spawnPosition: new THREE.Vector3(-6, 0, -8),
         color: 0x4a5a6a,
-      },
+        script: {
+          opening: {
+            text: "Need a blade sharpened? I'm — well, the master's away, but I can handle it.",
+            choices: [
+              { id: 'sharpen', label: 'My sword could use some work.' },
+              { id: 'master',  label: "Where's your master?" },
+              { id: '__end__', label: "Just looking." },
+            ]
+          },
+          responses: {
+            sharpen:  { text: "Let me see it. ...This is fine steel. Where'd you get it?",        choices: [{ id:'found_it', label:'Found it.' }, { id:'bought', label:'Bought it years ago.' }, { id:'__end__', label:"That's my business." }] },
+            master:   { text: "He left two days ago. Said he had business in Thornwall. Hasn't come back.", choices: [{ id:'worried', label:"You seem worried." }, { id:'__end__', label:'I see. Good luck.' }] },
+            worried:  { text: "He's always back by nightfall. Two days is... not normal for him.",  choices: [{ id:'__end__', label:"I'll keep an eye out." }] },
+            found_it: { text: "Huh. In a grave, or a fight?",                                      choices: [{ id:'grave', label:'An old ruin, actually.' }, { id:'__end__', label:"Does it matter?" }] },
+            grave:    { text: "Old ruins have good steel sometimes. Pre-war forging. They don't make them like that anymore.", choices: [{ id:'__end__', label:'Interesting.' }] },
+            bought:   { text: "Good craft. Whoever made it knew what they were doing.",             choices: [{ id:'__end__', label:'Thanks.' }] },
+          }
+        }
+      }
     ]
+    // ════════════════════════════════════════════════════════════════════
+
+    // ── Dialogue state ────────────────────────────────────────────────────
+    let dialogueOpen  = false
+    let activeNPC     = null
+    let typewriterTimer = null
+
+    const dlgBox      = document.getElementById('dialogue-box')
+    const dlgSpeaker  = document.getElementById('dialogue-speaker')
+    const dlgText     = document.getElementById('dialogue-text')
+    const dlgChoices  = document.getElementById('dialogue-choices')
+    const dlgFreeWrap = document.getElementById('dialogue-free-wrap')
+    const dlgFreeInput= document.getElementById('dialogue-free-input')
+    const dlgFreeSend = document.getElementById('dialogue-free-send')
+    const talkBtn     = document.getElementById('talk-btn')
+
+    function showLine(speaker, text, choices) {
+      dlgSpeaker.textContent = speaker
+      dlgText.classList.remove('thinking')
+      dlgChoices.innerHTML = ''
+      dlgFreeWrap.style.display = 'none'
+
+      // Typewriter
+      if (typewriterTimer) clearInterval(typewriterTimer)
+      dlgText.textContent = ''
+      let i = 0
+      typewriterTimer = setInterval(() => {
+        dlgText.textContent += text[i++]
+        if (i >= text.length) {
+          clearInterval(typewriterTimer)
+          typewriterTimer = null
+          showChoices(choices)
+        }
+      }, 18)
+    }
+
+    function showChoices(choices) {
+      dlgChoices.innerHTML = ''
+      for (const c of (choices ?? [])) {
+        const btn = document.createElement('button')
+        btn.className  = 'choice-btn'
+        btn.dataset.id = c.id
+        btn.textContent = c.label
+        btn.addEventListener('click', () => handleChoice(c.id))
+        dlgChoices.appendChild(btn)
+      }
+      dlgFreeWrap.style.display = 'flex'
+    }
+
+    function handleChoice(id) {
+      if (!activeNPC) return
+      if (id === '__end__') { closeDialogue(); return }
+      const resp = activeNPC.script?.responses?.[id]
+      if (resp) {
+        showLine(activeNPC.name, resp.text, resp.choices)
+      } else {
+        askAI(id)
+      }
+    }
+
+    async function askAI(playerText) {
+      dlgText.classList.add('thinking')
+      dlgChoices.innerHTML = ''
+      dlgFreeWrap.style.display = 'none'
+
+      try {
+        const res = await fetch('/api/dialogue/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            npcId:       activeNPC.id,
+            personality: activeNPC.personality,
+            playerText,
+          })
+        })
+        if (!res.ok) throw new Error('bad response')
+        const { text, choices } = await res.json()
+        showLine(activeNPC.name, text, choices)
+      } catch {
+        showLine(activeNPC.name, '...', [{ id: '__end__', label: 'Leave.' }])
+      }
+    }
+
+    function openDialogue(npcDef) {
+      activeNPC = npcDef
+      dialogueOpen = true
+      document.exitPointerLock?.()
+      dlgBox.classList.add('open')
+      talkBtn.classList.remove('visible')
+      const opening = npcDef.script?.opening ?? { text: 'Hello.', choices: [{ id:'__end__', label:'Goodbye.' }] }
+      showLine(npcDef.name, opening.text, opening.choices)
+    }
+
+    function closeDialogue() {
+      dialogueOpen = false
+      activeNPC = null
+      if (typewriterTimer) { clearInterval(typewriterTimer); typewriterTimer = null }
+      dlgBox.classList.remove('open')
+      dlgChoices.innerHTML = ''
+      dlgText.textContent = ''
+    }
+
+    // Free-text send
+    const sendFree = () => {
+      const t = dlgFreeInput.value.trim()
+      if (!t) return
+      dlgFreeInput.value = ''
+      askAI(t)
+    }
+    dlgFreeSend.addEventListener('click', sendFree)
+    dlgFreeInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendFree() })
 
     // ── Spawn NPCs ────────────────────────────────────────────────────────
-    const npcs = []
+    const npcs = []   // { root, mixer, def, promptSprite }
 
     function buildPlaceholderNPC(color) {
       const g = new THREE.Group()
-      g.add(Object.assign(
-        new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 1.0, 4, 8), new THREE.MeshLambertMaterial({ color })),
-        { position: { y: 0.95 }, castShadow: true }
-      ))
-      g.add(Object.assign(
-        new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshLambertMaterial({ color: 0xd4a882 })),
-        { position: { y: 1.9 } }
-      ))
+      const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 1.0, 4, 8), new THREE.MeshLambertMaterial({ color }))
+      b.position.y = 0.95; b.castShadow = true; g.add(b)
+      const h = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshLambertMaterial({ color: 0xd4a882 }))
+      h.position.y = 1.9; g.add(h)
       return g
+    }
+
+    function buildPromptSprite(name) {
+      const canvas = document.createElement('canvas')
+      canvas.width = 256; canvas.height = 64
+      const ctx = canvas.getContext('2d')
+      ctx.fillStyle = 'rgba(0,0,0,0.65)'
+      ctx.beginPath(); ctx.roundRect(4, 4, 248, 56, 8); ctx.fill()
+      ctx.fillStyle = '#c8d8a0'
+      ctx.font = '600 15px Georgia'
+      ctx.textAlign = 'center'
+      ctx.fillText(`[E]  Talk to ${name}`, 128, 36)
+      const tex = new THREE.CanvasTexture(canvas)
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false })
+      const sprite = new THREE.Sprite(mat)
+      sprite.scale.set(2.2, 0.55, 1)
+      sprite.position.set(0, 2.8, 0)
+      sprite.visible = false
+      return sprite
     }
 
     for (const def of NPC_DEFS) {
@@ -169,16 +479,17 @@
       root.position.copy(def.spawnPosition)
       scene.add(root)
 
-      const entry = { root, mixer: null, name: def.name }
+      const prompt = buildPromptSprite(def.name)
+      root.add(prompt)
+
+      const entry = { root, mixer: null, def, prompt }
       npcs.push(entry)
 
       gltfLoader.load(
         def.modelPath,
         (gltf) => {
           const model = gltf.scene
-          model.position.set(0, 0, 0)
-          model.rotation.set(0, 0, 0)
-          model.scale.set(1, 1, 1)
+          model.position.set(0, 0, 0); model.rotation.set(0, 0, 0); model.scale.set(1, 1, 1)
           model.traverse(obj => {
             if (!obj.isMesh) return
             const s = obj.scale
@@ -187,13 +498,12 @@
             obj.geometry.computeBoundingBox()
             const minY = obj.geometry.boundingBox.min.y * obj.scale.y + obj.position.y
             if (Math.abs(minY) > 0.01) obj.position.y -= minY
-            obj.castShadow = true
-            obj.receiveShadow = true
+            obj.castShadow = true; obj.receiveShadow = true
             if (!obj.material || (Array.isArray(obj.material) && !obj.material.length))
               obj.material = new THREE.MeshLambertMaterial({ color: def.color })
           })
           root.add(model)
-          if (gltf.animations && gltf.animations.length) {
+          if (gltf.animations?.length) {
             entry.mixer = new THREE.AnimationMixer(model)
             entry.mixer.clipAction(gltf.animations[0]).play()
           }
@@ -217,11 +527,7 @@
       '/assets/world.glb',
       (gltf) => {
         gltf.scene.traverse(o => {
-          if (o.isMesh) {
-            o.castShadow = true
-            o.receiveShadow = true
-            worldMeshes.push(o)   // ← collect every mesh for raycasting
-          }
+          if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; worldMeshes.push(o) }
         })
         scene.add(gltf.scene)
         dismissLoading()
@@ -234,28 +540,14 @@
         }
       },
       () => {
-        // No world.glb — build placeholder and register its meshes
         console.info('No world.glb — using placeholder')
-        const ground = new THREE.Mesh(
-          new THREE.PlaneGeometry(40, 40),
-          new THREE.MeshLambertMaterial({ color: 0x2d4a2d })
-        )
-        ground.rotation.x = -Math.PI / 2
-        ground.receiveShadow = true
-        scene.add(ground)
-        worldMeshes.push(ground)   // ← register placeholder ground
-
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshLambertMaterial({ color: 0x2d4a2d }))
+        ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true
+        scene.add(ground); worldMeshes.push(ground)
         scene.add(new THREE.GridHelper(40, 20, 0x3a5a3a, 0x3a5a3a))
-
-        const cube = new THREE.Mesh(
-          new THREE.BoxGeometry(1.5, 1.5, 1.5),
-          new THREE.MeshLambertMaterial({ color: 0xe05050 })
-        )
-        cube.position.set(0, 0.75, -8)
-        cube.castShadow = true
-        scene.add(cube)
-        worldMeshes.push(cube)     // ← register cube too (player can walk on top)
-        spinTarget = cube
+        const cube = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), new THREE.MeshLambertMaterial({ color: 0xe05050 }))
+        cube.position.set(0, 0.75, -8); cube.castShadow = true
+        scene.add(cube); worldMeshes.push(cube); spinTarget = cube
         dismissLoading()
       }
     )
@@ -263,7 +555,7 @@
     // ── Pointer lock ──────────────────────────────────────────────────────
     let mouseLocked = false
     renderer.domElement.addEventListener('click', () => {
-      if (!mouseLocked) renderer.domElement.requestPointerLock()
+      if (!mouseLocked && !dialogueOpen) renderer.domElement.requestPointerLock()
     })
     document.addEventListener('pointerlockchange', () => {
       mouseLocked = document.pointerLockElement === renderer.domElement
@@ -271,24 +563,28 @@
         ? 'WASD to move · Shift to release mouse'
         : 'WASD to move · Click canvas to look'
     })
-    addEventListener('keydown', e => {
-      if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && mouseLocked)
-        document.exitPointerLock()
-    })
-
-    // ── Mouse look ────────────────────────────────────────────────────────
-    let yaw = 0, pitch = 0
-    addEventListener('mousemove', e => {
-      if (!mouseLocked) return
-      yaw   -= e.movementX * 0.002
-      pitch -= e.movementY * 0.002
-      pitch  = Math.max(-0.5, Math.min(0.4, pitch))
-    })
 
     // ── Keyboard ──────────────────────────────────────────────────────────
     const keys = {}
-    addEventListener('keydown', e => { keys[e.code] = true })
-    addEventListener('keyup',   e => { keys[e.code] = false })
+    addEventListener('keydown', e => {
+      if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && mouseLocked) document.exitPointerLock()
+      if (e.code === 'KeyE' && !dialogueOpen) {
+        // find nearest NPC in range and open dialogue
+        for (const npc of npcs) {
+          if (npc.prompt.visible) { openDialogue(npc.def); break }
+        }
+      }
+      if (e.code === 'Escape' && dialogueOpen) closeDialogue()
+      keys[e.code] = true
+    })
+    addEventListener('keyup', e => { keys[e.code] = false })
+
+    // ── Talk button (mobile) ──────────────────────────────────────────────
+    talkBtn.addEventListener('click', () => {
+      for (const npc of npcs) {
+        if (npc.prompt.visible) { openDialogue(npc.def); break }
+      }
+    })
 
     // ── Joystick ──────────────────────────────────────────────────────────
     let joyX = 0, joyZ = 0
@@ -303,19 +599,34 @@
     // ── Game loop ─────────────────────────────────────────────────────────
     const clock = new THREE.Clock()
     const SPEED = 5
+    const INTERACT_DIST = 3.0
 
     renderer.setAnimationLoop(() => {
       const dt = Math.min(clock.getDelta(), 0.1)
 
       if (spinTarget) spinTarget.rotation.y += dt * 0.8
 
-      // NPC: face player + tick animations
+      // NPC: face player, tick animations, show/hide prompt
+      let anyNearby = false
       for (const npc of npcs) {
         const dir = player.position.clone().sub(npc.root.position)
         dir.y = 0
         if (dir.lengthSq() > 0.01)
           npc.root.rotation.y += (Math.atan2(dir.x, dir.z) - npc.root.rotation.y) * 0.05
         if (npc.mixer) npc.mixer.update(dt)
+
+        const dist = player.position.distanceTo(npc.root.position)
+        const nearby = dist < INTERACT_DIST && !dialogueOpen
+        npc.prompt.visible = nearby
+        if (nearby) anyNearby = true
+      }
+      // Show mobile talk button only when an NPC is nearby and no dialogue open
+      talkBtn.classList.toggle('visible', anyNearby && !dialogueOpen)
+
+      // Skip movement while dialogue is open
+      if (dialogueOpen) {
+        renderer.render(scene, camera)
+        return
       }
 
       // Movement
@@ -330,43 +641,35 @@
       const fwd   = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw))
       const right = new THREE.Vector3( Math.cos(yaw), 0, -Math.sin(yaw))
 
-      // ── Wall + NPC collision ─────────────────────────────────────────────
+      // ── Wall + NPC collision ───────────────────────────────────────────
       const PLAYER_RADIUS = 0.5
       const wallRay = new THREE.Raycaster()
       const chestPos = player.position.clone().add(new THREE.Vector3(0, 1, 0))
-
-      // Collect NPC body meshes alongside world meshes
       const collidables = [...worldMeshes]
-      for (const npc of npcs) {
-        npc.root.traverse(o => { if (o.isMesh) collidables.push(o) })
-      }
+      for (const npc of npcs) npc.root.traverse(o => { if (o.isMesh) collidables.push(o) })
 
       if (mz !== 0 && collidables.length > 0) {
         const dir = fwd.clone().multiplyScalar(-mz).normalize()
-        wallRay.set(chestPos, dir)
-        wallRay.far = PLAYER_RADIUS
+        wallRay.set(chestPos, dir); wallRay.far = PLAYER_RADIUS
         if (wallRay.intersectObjects(collidables, false).length > 0) mz = 0
       }
       if (mx !== 0 && collidables.length > 0) {
         const dir = right.clone().multiplyScalar(mx).normalize()
-        wallRay.set(chestPos, dir)
-        wallRay.far = PLAYER_RADIUS
+        wallRay.set(chestPos, dir); wallRay.far = PLAYER_RADIUS
         if (wallRay.intersectObjects(collidables, false).length > 0) mx = 0
       }
 
       player.position.addScaledVector(fwd,  -mz * SPEED * dt)
       player.position.addScaledVector(right, mx * SPEED * dt)
-
-      // ── Floor collision (replaces hard player.position.y = 0) ───────────
       snapPlayerToFloor()
 
       if (mx !== 0 || mz !== 0) {
-        const angle = Math.atan2(
-          fwd.x * (-mz) + right.x * mx,
-          fwd.z * (-mz) + right.z * mx
-        )
+        const angle = Math.atan2(fwd.x * (-mz) + right.x * mx, fwd.z * (-mz) + right.z * mx)
         player.rotation.y += (angle - player.rotation.y) * 0.2
       }
+
+      // ── Mouse look ─────────────────────────────────────────────────────
+      // (mousemove handler below updates yaw/pitch)
 
       // Camera
       const camDist = 5, camH = 2.5
@@ -380,6 +683,15 @@
       camera.lookAt(lookAt)
 
       renderer.render(scene, camera)
+    })
+
+    // ── Mouse look ────────────────────────────────────────────────────────
+    let yaw = 0, pitch = 0
+    addEventListener('mousemove', e => {
+      if (!mouseLocked) return
+      yaw   -= e.movementX * 0.002
+      pitch -= e.movementY * 0.002
+      pitch  = Math.max(-0.5, Math.min(0.4, pitch))
     })
 
     // ── Resize ────────────────────────────────────────────────────────────
