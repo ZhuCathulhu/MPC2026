@@ -3,243 +3,63 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MPC2026</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Permanent+Marker&display=swap" rel="stylesheet">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #0e0a08; }
-    canvas { display: block; }
-
-    #loading {
-      position: fixed; inset: 0; background: #0a0806;
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 16px;
-      font-family: 'Special Elite', monospace; color: #3a1a10;
-      font-size: 13px; letter-spacing: 0.25em;
-      transition: opacity 0.6s; z-index: 100;
-    }
-    #loading.hidden { opacity: 0; pointer-events: none; }
-    #loading-bar-wrap {
-      width: 200px; height: 2px; background: #1a0a06;
-      border: none; position: relative;
-    }
-    #loading-bar {
-      height: 100%; background: #c0200a; width: 0%;
-      transition: width 0.2s;
-    }
-    #loading-label { text-transform: uppercase; }
-
-    #main-menu {
-      position: fixed; inset: 0; z-index: 90;
-      background: #0e0a08;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      overflow: hidden;
-      transition: opacity 1s;
-    }
-    #main-menu.hidden { opacity: 0; pointer-events: none; }
-
-    #menu-grain {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%;
-      opacity: 0.2; pointer-events: none; z-index: 0;
-    }
-
-    .red-smear {
-      position: absolute; background: #7b0000;
-      pointer-events: none; border-radius: 40% 60% 50% 70%;
-    }
-
-    .brush-line {
-      position: absolute; background: #c0200a;
-      pointer-events: none; transform-origin: left center;
-    }
-
-    .ink-dot {
-      position: absolute; border-radius: 50%; background: #1a0000;
-      pointer-events: none;
-    }
-
-    .corner-mark {
-      position: absolute; width: 36px; height: 36px;
-      pointer-events: none; z-index: 2; opacity: 0.4;
-    }
-    .corner-mark svg { width: 100%; height: 100%; }
-
-    .menu-title-area {
-      position: relative; text-align: center;
-      margin-bottom: 48px; z-index: 2;
-      animation: inkBleed 1.3s ease-out forwards;
-    }
-    @keyframes inkBleed {
-      from { opacity: 0; filter: blur(6px); transform: scale(1.05); }
-      to   { opacity: 1; filter: blur(0); transform: scale(1); }
-    }
-
-    .menu-eyebrow {
-      font-family: 'Special Elite', monospace;
-      font-size: 11px; letter-spacing: 0.45em;
-      color: #6b2218; text-transform: uppercase;
-      display: block; margin-bottom: 10px;
-    }
-
-    .menu-title-main {
-      font-family: 'Permanent Marker', cursive;
-      font-size: clamp(52px, 10vw, 80px);
-      color: #d42010; text-transform: uppercase;
-      line-height: 1; letter-spacing: 0.05em;
-      text-shadow: 3px 3px 0px #1a0000, -1px 1px 0px #000, 6px 6px 0px rgba(0,0,0,0.4);
-      display: block;
-    }
-
-    .title-slash {
-      display: block; width: 75%; height: 3px;
-      background: #c0200a; margin: 12px auto 0;
-      clip-path: polygon(0 0, 100% 25%, 98% 100%, 2% 75%);
-    }
-
-    .menu-subtitle {
-      font-family: 'Special Elite', monospace;
-      font-size: 11px; letter-spacing: 0.32em;
-      color: #3a1408; text-transform: uppercase;
-      display: block; margin-top: 10px;
-    }
-
-    .menu-nav {
-      position: relative; z-index: 2;
-      display: flex; flex-direction: column;
-      align-items: center; gap: 4px;
-      animation: riseUp 1s 0.7s ease-out both;
-    }
-    @keyframes riseUp {
-      from { opacity: 0; transform: translateY(18px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    .noir-btn {
-      font-family: 'Special Elite', monospace;
-      font-size: 14px; letter-spacing: 0.28em;
-      text-transform: uppercase; color: #a89080;
-      background: transparent; border: none; cursor: pointer;
-      padding: 11px 40px; width: 280px; text-align: center;
-      position: relative; transition: color 0.15s, letter-spacing 0.2s;
-      user-select: none;
-    }
-    .noir-btn::after {
-      content: ''; position: absolute;
-      left: 12%; right: 12%; bottom: 5px; height: 1px;
-      background: #6b2218;
-      transform: scaleX(0); transform-origin: left;
-      transition: transform 0.24s ease;
-    }
-    .noir-btn:hover { color: #e8cdb8; letter-spacing: 0.35em; }
-    .noir-btn:hover::after { transform: scaleX(1); }
-
-    .noir-btn.hero {
-      font-size: 19px; color: #d42010; letter-spacing: 0.32em;
-    }
-    .noir-btn.hero:hover { color: #ff5535; letter-spacing: 0.4em; }
-    .noir-btn.hero::after { background: #c0200a; height: 2px; }
-
-    .noir-btn.dim {
-      color: #2e1408; cursor: default; pointer-events: none;
-    }
-
-    #menu-version {
-      position: absolute; bottom: 18px; right: 22px;
-      font-family: 'Special Elite', monospace;
-      font-size: 10px; letter-spacing: 0.18em;
-      color: #1e0c06; z-index: 2;
-      animation: riseUp 2s 1.6s both;
-    }
-
-    #hint {
-      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.7); color: #6a3828;
-      font: 12px/1.5 'Special Elite', monospace;
-      padding: 7px 18px; border-radius: 0;
-      pointer-events: none; text-align: center; white-space: nowrap;
-      letter-spacing: 0.12em; text-transform: uppercase;
-      display: none;
-    }
-
-    #joystick-zone {
-      position: fixed; bottom: 30px; left: 30px;
-      width: 110px; height: 110px;
-      touch-action: none; z-index: 10; display: none;
-    }
-  </style>
+  <title>The Last Ship — A World Forgotten</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <div id="loading">
-    <div id="loading-label">loading…</div>
-    <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+  <!-- ── Loading ───────────────────────────────────────────── -->
+  <div id="loading" aria-live="polite">
+    <span id="loading-label">Loading…</span>
+    <div id="loading-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+      <div id="loading-bar"></div>
+    </div>
   </div>
 
-  <div id="main-menu" class="hidden">
-    <canvas id="menu-grain"></canvas>
+  <!-- ── Main menu ─────────────────────────────────────────── -->
+  <main id="main-menu" class="hidden" aria-label="Main menu">
+    <canvas id="menu-grain" aria-hidden="true"></canvas>
 
-    <div class="red-smear" style="width:380px;height:200px;top:8%;left:-60px;transform:rotate(-6deg);opacity:0.06;"></div>
-    <div class="red-smear" style="width:220px;height:130px;bottom:12%;right:10px;transform:rotate(10deg);opacity:0.04;"></div>
+    <header class="menu-title-area">
 
-    <div class="brush-line" style="width:60%;height:2px;top:20%;left:4%;transform:rotate(-1.4deg);opacity:0.45;"></div>
-    <div class="brush-line" style="width:35%;height:1px;top:21%;left:32%;transform:rotate(0.6deg);opacity:0.25;background:#6b2218;"></div>
-    <div class="brush-line" style="width:50%;height:2px;bottom:18%;right:0;transform:rotate(2deg);opacity:0.3;"></div>
-    <div class="brush-line" style="width:18%;height:1px;bottom:19%;right:28%;transform:rotate(-1deg);opacity:0.2;background:#6b2218;"></div>
+      <img class="menu-title" src="assets/title.png" alt="The Last Ship">
 
-    <div class="ink-dot" style="width:7px;height:7px;top:17%;left:11%;opacity:0.4;"></div>
-    <div class="ink-dot" style="width:4px;height:4px;top:34%;right:15%;opacity:0.3;background:#6b0000;"></div>
-    <div class="ink-dot" style="width:9px;height:6px;bottom:26%;left:18%;opacity:0.2;"></div>
-    <div class="ink-dot" style="width:3px;height:3px;top:58%;right:7%;opacity:0.5;background:#5a0000;"></div>
-    <div class="ink-dot" style="width:5px;height:5px;top:72%;left:6%;opacity:0.3;background:#1a0000;"></div>
+      <nav class="menu-nav" aria-label="Game menu">
+        <button id="btn-play" class="btn-hero" type="button">
+          <img src="assets/btn-start.png" alt="Start Game">
+        </button>
+      </nav>
+    </header>
 
-    <div class="corner-mark" style="top:16px;left:16px;">
-      <svg viewBox="0 0 36 36" fill="none" stroke="#8b2218" stroke-width="1.2">
-        <path d="M3 33 L3 3 L33 3" stroke-dasharray="4 2.5"/>
-      </svg>
-    </div>
-    <div class="corner-mark" style="top:16px;right:16px;">
-      <svg viewBox="0 0 36 36" fill="none" stroke="#8b2218" stroke-width="1.2">
-        <path d="M33 33 L33 3 L3 3" stroke-dasharray="4 2.5"/>
-      </svg>
-    </div>
-    <div class="corner-mark" style="bottom:16px;left:16px;">
-      <svg viewBox="0 0 36 36" fill="none" stroke="#8b2218" stroke-width="1.2">
-        <path d="M3 3 L3 33 L33 33" stroke-dasharray="4 2.5"/>
-      </svg>
-    </div>
-    <div class="corner-mark" style="bottom:16px;right:16px;">
-      <svg viewBox="0 0 36 36" fill="none" stroke="#8b2218" stroke-width="1.2">
-        <path d="M33 3 L33 33 L3 33" stroke-dasharray="4 2.5"/>
-      </svg>
+  </main>
+
+  <!-- ── Story / context screens ───────────────────────────── -->
+  <section id="story-screen" class="hidden" aria-label="Story introduction">
+
+    <div class="story-card" aria-live="polite">
+      <p id="story-text" class="story-text"></p>
+      <nav class="story-nav" aria-label="Story navigation">
+        <button id="btn-back" type="button">
+          <img src="assets/btn-back.png" alt="Back">
+        </button>
+
+          <span id="story-counter" aria-hidden="true"></span>
+
+        <button id="btn-next" type="button">
+          <img src="assets/btn-next.png" alt="Next">
+        </button>
+      </nav>
     </div>
 
-    <div class="menu-title-area">
-      <span class="menu-eyebrow">— a world forgotten —</span>
-      <span class="menu-title-main">MPC2026</span>
-      <span class="title-slash"></span>
-      <span class="menu-subtitle">chapter one</span>
-    </div>
+  </section>
 
-    <nav class="menu-nav">
-      <button class="noir-btn hero" id="btn-play">&#9654; &nbsp; Play</button>
-      <svg width="140" height="14" viewBox="0 0 140 14" fill="none" style="margin:4px 0;">
-        <path d="M6 7 Q35 3 70 7 Q105 11 134 7" stroke="#4a1a10" stroke-width="0.9" stroke-dasharray="5 3"/>
-      </svg>
-      <button class="noir-btn dim" id="btn-continue">&#8635; &nbsp; Continue</button>
-      <button class="noir-btn" id="btn-settings">&#9881; &nbsp; Settings</button>
-      <button class="noir-btn" id="btn-credits">&#9678; &nbsp; Credits</button>
-    </nav>
+  <!-- ── In-game UI ─────────────────────────────────────────── -->
+  <p id="hint" role="status" aria-live="polite">
+    WASD to move · Click to look · Shift releases mouse
+  </p>
+  <div id="joystick-zone" aria-hidden="true"></div>
 
-    <div id="menu-version">v0.1.0</div>
-  </div>
-
-  <div id="hint">WASD to move &middot; Click to look &middot; Shift releases mouse</div>
-  <div id="joystick-zone"></div>
-
+  <!-- ── Scripts ───────────────────────────────────────────── -->
   <script type="importmap">
   {
     "imports": {
@@ -255,7 +75,7 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
     import nipplejs from 'nipplejs'
 
-    // ── Film grain on menu canvas ─────────────────────────────────────────
+    // ── Film grain ────────────────────────────────────────────────────────
     const grainCanvas = document.getElementById('menu-grain')
     const gctx = grainCanvas.getContext('2d')
     function drawGrain() {
@@ -357,35 +177,66 @@
     }
 
     function showMenu() {
-      const m = document.getElementById('main-menu')
-      m.classList.remove('hidden')
-      const hasSave = false
-      if (hasSave) {
-        const cont = document.getElementById('btn-continue')
-        cont.classList.remove('dim')
-        cont.style.pointerEvents = 'auto'
-      }
+      document.getElementById('main-menu').classList.remove('hidden')
+    }
+
+    // ── Story slides ──────────────────────────────────────────────────────
+    const storySlides = [
+      "It’s the roaring 1950s in the island of Diécada. The European Democratic Kingdom is cracking down on their exports: sugar, bananas, slave labour, cocaine. Produce rots in sheds. Resentment boils in empty pots and empty stomachs.",
+      "You are the last remaining EDK diplomat still operating. \n\nYou’re hiding out in Diécada and you’re not going back.",
+      "Things are primed to reach an explosive point on August 30th, when the ships from the capital come in for their last harvest of blood fruit. \n\nThere are 3 days remaining.",
+    ]
+
+    let currentSlide = 0
+
+    function renderSlide() {
+      const text    = document.getElementById('story-text')
+      const counter = document.getElementById('story-counter')
+      const btnBack = document.getElementById('btn-back')
+      const btnNext = document.getElementById('btn-next')
+
+      text.classList.remove('visible')
+      setTimeout(() => {
+        text.innerText = storySlides[currentSlide]
+        counter.textContent = `${currentSlide + 1} / ${storySlides.length}`
+        btnBack.disabled = currentSlide === 0
+        const isLast = currentSlide === storySlides.length - 1
+  
+        text.classList.add('visible')
+      }, 600)
+    }
+
+    function showStory() {
+      document.getElementById('main-menu').classList.add('hidden')
+      const screen = document.getElementById('story-screen')
+      screen.classList.remove('hidden')
+      screen.classList.add('animate')    // ← triggers animations now that it's visible
+      renderSlide()
     }
 
     function enterGame() {
-      const m = document.getElementById('main-menu')
-      m.classList.add('hidden')
+      document.getElementById('story-screen').classList.add('hidden')
       setTimeout(() => {
-        m.remove()
+        document.getElementById('story-screen').remove()
+        document.body.classList.add('game-active')
         document.getElementById('hint').style.display = 'block'
         document.getElementById('joystick-zone').style.display = 'block'
         gameRunning = true
-      }, 1000)
+      }, 600)
     }
 
-    // ── Menu events ───────────────────────────────────────────────────────
-    document.getElementById('btn-play').addEventListener('click', enterGame)
-    document.getElementById('btn-continue').addEventListener('click', enterGame)
-    document.getElementById('btn-settings').addEventListener('click', () => {
-      alert('Settings — coming soon.')
+    // ── Menu & story events ───────────────────────────────────────────────
+    document.getElementById('btn-play').addEventListener('click', showStory)
+    document.getElementById('btn-back').addEventListener('click', () => {
+      if (currentSlide > 0) { currentSlide--; renderSlide() }
     })
-    document.getElementById('btn-credits').addEventListener('click', () => {
-      alert('Credits — coming soon.')
+    document.getElementById('btn-next').addEventListener('click', () => {
+      if (currentSlide < storySlides.length - 1) {
+        currentSlide++
+        renderSlide()
+      } else {
+        enterGame()
+      }
     })
 
     // ── GLB load ──────────────────────────────────────────────────────────
@@ -403,10 +254,11 @@
         if (xhr.total) {
           const pct = Math.round((xhr.loaded / xhr.total) * 100)
           document.getElementById('loading-bar').style.width = pct + '%'
-          document.getElementById('loading-label').textContent = `loading… ${pct}%`
+          document.getElementById('loading-label').textContent = `Loading… ${pct}%`
         }
       },
       () => {
+        // No world.glb yet — show placeholder and proceed to menu
         spinTarget = buildPlaceholder()
         dismissLoading(showMenu)
       }
