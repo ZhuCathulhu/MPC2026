@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Last Ship — A World Forgotten</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ── Loading ───────────────────────────────────────────── -->
+  <div id="loading" aria-live="polite">
+    <span id="loading-label">Loading…</span>
+    <div id="loading-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+      <div id="loading-bar"></div>
+    </div>
+  </div>
+
+  <!-- ── Main menu ─────────────────────────────────────────── -->
+  <main id="main-menu" class="hidden" aria-label="Main menu">
+    <canvas id="menu-grain" aria-hidden="true"></canvas>
+    <header class="menu-title-area">
+      <img class="menu-title" src="assets/title.png" alt="The Last Ship">
+      <nav class="menu-nav" aria-label="Game menu">
+        <button id="btn-play" class="btn-hero" type="button">
+          <img src="assets/btn-start.png" alt="Start Game">
+        </button>
+      </nav>
+    </header>
+  </main>
+
+  <!-- ── Story / context screens ───────────────────────────── -->
+  <section id="story-screen" class="hidden" aria-label="Story introduction">
+    <div class="story-card" aria-live="polite">
+      <p id="story-text" class="story-text"></p>
+      <nav class="story-nav" aria-label="Story navigation">
+        <button id="btn-back" type="button">
+          <img src="assets/btn-back.png" alt="Back">
+        </button>
+        <span id="story-counter" aria-hidden="true"></span>
+        <button id="btn-next" type="button">
+          <img src="assets/btn-next.png" alt="Next">
+        </button>
+      </nav>
+    </div>
+  </section>
+
+  <div id="day-counter">Day 1</div>
+
+  <!-- ── In-game UI ─────────────────────────────────────────── -->
+  <div id="app"></div>
+  <p id="hint" role="status" aria-live="polite">WASD to move · Click canvas to look</p>
+
+  <div id="joystick-zone" aria-hidden="true">
+    <div id="joystick-knob"></div>
+  </div>
+
+  <button id="btn-jump" type="button">Jump</button>
+  <button id="btn-talk" type="button">Talk</button>
+
+  <!-- ── Dialogue overlay ───────────────────────────────────── -->
+  <div id="dialogue-box">
+    <div id="dialogue-inner">
+      <div id="dialogue-speaker"></div>
+      <div id="dialogue-text"></div>
+      <div id="dialogue-choices"></div>
+      <div id="dialogue-free-wrap">
+        <input id="dialogue-free-input" type="text"
+               placeholder="Say something else…" maxlength="200" autocomplete="off" />
+        <button id="dialogue-free-send">Ask</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

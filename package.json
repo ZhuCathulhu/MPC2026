@@ -1,0 +1,29 @@
+{
+  "name": "rpg-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"node server/index.js\"",
+    "dev:client": "vite",
+    "dev:server": "node --watch server/index.js",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.15.0",
+    "concurrently": "^8.2.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "groq-sdk": "^1.2.1",
+    "mongoose": "^8.5.0",
+    "nipplejs": "^0.10.1",
+    "node-fetch": "^3.3.2",
+    "three": "^0.167.0",
+    "three-mesh-bvh": "^0.7.8"
+  },
+  "devDependencies": {
+    "vite": "^5.3.4"
+  }
+}
