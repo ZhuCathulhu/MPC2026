@@ -106,7 +106,7 @@ export class Engine {
       this.audio.playOneShot('item_pickup.mp3', 0.8)
     })
 
-    this.audio.addPositional('water', 'water.wav', [5, 0, -4], 20)
+    this.audio.addPositional('water', 'water.mp3', [5, 0, -4], 20)
 
     this.dialogue.addEventListener('item-gained', (e) => {
     console.log('[Audio] item-gained fired', e.detail)
