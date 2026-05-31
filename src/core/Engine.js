@@ -247,6 +247,8 @@ _renderSlide() {
       document.getElementById('joystick-zone').classList.add('visible')
       document.getElementById('btn-jump').classList.add('visible')
       document.getElementById('btn-talk').classList.add('visible')
+          document.getElementById('day-counter').classList.add('visible')  // ← add this
+
       this.input.initJoystick()
       this._gameRunning = true
     }, 600)
