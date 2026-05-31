@@ -189,15 +189,18 @@ export class Engine {
 
   _setupMenuEvents() {
     document.getElementById('btn-play').addEventListener('click', () => this._showStory())
-    document.getElementById('btn-back').addEventListener('click', () => {
-      if (this._currentSlide > 0) { this._currentSlide--; this._renderSlide() }
-    })
     document.getElementById('btn-next').addEventListener('click', () => {
+      const text = document.getElementById('story-text')
+      if (!this._twDone) { this._flushTypewriter(text); return }   // skip to end
       if (this._currentSlide < STORY_SLIDES.length - 1) {
         this._currentSlide++; this._renderSlide()
       } else {
         this._enterGame()
       }
+    })
+
+    document.getElementById('btn-back').addEventListener('click', () => {
+      if (this._currentSlide > 0) { this._currentSlide--; this._renderSlide() }
     })
   }
 
@@ -207,21 +210,76 @@ export class Engine {
     screen.classList.remove('hidden')
     screen.classList.add('animate')
     this._currentSlide = 0
-    this._renderSlide()
+
+    // Wait for screen + card fade-in before starting typewriter (~1.6s total)
+    setTimeout(() => {
+      // Lock card in place so re-renders don't re-trigger the animation
+      const card = screen.querySelector('.story-card')
+      card.style.opacity   = '1'
+      card.style.animation = 'none'
+      this._renderSlide()
+    }, 3000)
   }
 
-  _renderSlide() {
-    const text    = document.getElementById('story-text')
-    const counter = document.getElementById('story-counter')
-    const btnBack = document.getElementById('btn-back')
-    text.classList.remove('visible')
-    setTimeout(() => {
-      text.innerText      = STORY_SLIDES[this._currentSlide]
-      counter.textContent = `${this._currentSlide + 1} / ${STORY_SLIDES.length}`
-      btnBack.disabled    = this._currentSlide === 0
-      text.classList.add('visible')
-    }, 600)
+// Punctuation pause map — tweak ms values to taste
+_PUNCT_PAUSE = { '.': 450, ',': 180, '—': 280, '!': 380, '?': 380, ':': 200, '\n':500 }
+_BASE_SPEED  = 35   // ms per character
+_twTimer     = null
+_twDone      = false
+
+_typeText(el, text, onDone) {
+  el.style.opacity = '1'
+  el.innerHTML     = ''
+  this._twDone     = false
+  if (this._twTimer) { clearTimeout(this._twTimer); this._twTimer = null }
+
+  // Single wrapper — flex never separates text from cursor
+  const wrapper  = document.createElement('span')
+  wrapper.style.cssText = 'display: inline; white-space: pre-line;'
+  const textNode = document.createTextNode('')
+  const cursor   = document.createElement('span')
+  cursor.id      = 'tw-cursor'
+  cursor.innerHTML = '&nbsp;'
+  wrapper.appendChild(textNode)
+  wrapper.appendChild(cursor)
+  el.appendChild(wrapper)
+
+  let i = 0
+  const tick = () => {
+    if (i >= text.length) {
+      cursor.classList.add('hidden')
+      this._twDone = true
+      onDone?.()
+      return
+    }
+    const ch = text[i++]
+    textNode.textContent += ch
+    const jitter = Math.random() * this._BASE_SPEED * 0.3 | 0
+    const pause  = (this._PUNCT_PAUSE[ch] ?? 0) + jitter
+    this._twTimer = setTimeout(tick, this._BASE_SPEED + pause)
   }
+  tick()
+}
+
+_flushTypewriter(el) {
+  if (this._twTimer) { clearTimeout(this._twTimer); this._twTimer = null }
+  el.innerHTML     = ''
+  el.textContent   = STORY_SLIDES[this._currentSlide]
+  this._twDone     = true
+}
+
+_renderSlide() {
+  const text    = document.getElementById('story-text')
+  const counter = document.getElementById('story-counter')
+  const btnBack = document.getElementById('btn-back')
+  const btnNext = document.getElementById('btn-next')
+
+  counter.textContent = `${this._currentSlide + 1} / ${STORY_SLIDES.length}`
+  btnBack.disabled    = this._currentSlide === 0
+  btnNext.disabled    = false
+
+  this._typeText(text, STORY_SLIDES[this._currentSlide])
+}
 
   _enterGame() {
     document.getElementById('story-screen').classList.add('hidden')
