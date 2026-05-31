@@ -58,7 +58,6 @@ export class Engine {
       collider: this.collider,
       input:    this.input,
     })
-
     this.npcs = new NPCManager({
       scene:     this.scene,
       dialogue:  this.dialogue,
@@ -137,7 +136,7 @@ export class Engine {
     const el = document.getElementById('loading')
     if (!el) return
     if (!visible) {
-      el.classList.add('hidden')
+      el.style.opacity = '0'
       setTimeout(() => el.remove(), 700)
       return
     }

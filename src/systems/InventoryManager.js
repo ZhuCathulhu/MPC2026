@@ -24,8 +24,9 @@ export class InventoryManager extends EventTarget {
   constructor(playerId) {
     super()
     this.playerId = playerId
-    this._items   = {}   // { item_id: quantity }
-    this._flags   = {}   // { flag_name: any }
+    this._items    = {}   // { item_id: quantity }
+    this._flags    = {}   // { flag_name: any }
+    this._position = null // { x, y, z } — restored on load, saved periodically
     this._dirty   = false
     this._saveTimer = null
   }
@@ -40,8 +41,9 @@ export class InventoryManager extends EventTarget {
         if (!res.ok) return
         const data = await res.json()
         if (!data) return
-        this._items = data.inventory ?? {}
-        this._flags = data.flags     ?? {}
+        this._items    = data.inventory ?? {}
+        this._flags    = data.flags     ?? {}
+        this._position = data.position  ?? null
         this._emit()
         return
       } catch (err) {
@@ -59,15 +61,18 @@ export class InventoryManager extends EventTarget {
   }
 
   async _flush() {
+    console.log('[Inventory] Flushing:', JSON.stringify({ inventory: this._items, flags: this._flags }))
     try {
-      await fetch(`/api/save/${this.playerId}`, {
+      const res = await fetch(`/api/save/${this.playerId}`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
           inventory: this._items,
           flags:     this._flags,
+          position:  this._position ?? undefined,
         }),
       })
+      console.log('[Inventory] Flush response:', res.status)
     } catch (err) {
       console.warn('[Inventory] Save failed:', err.message)
     }
@@ -141,6 +146,20 @@ export class InventoryManager extends EventTarget {
     this.dispatchEvent(new CustomEvent('change', {
       detail: { items: this.list(), flags: { ...this._flags } }
     }))
+  }
+
+  // ── Position ───────────────────────────────────────────────────────────────
+
+  /** Call from Engine game loop (e.g. every 5 s) to keep position current */
+  setPosition(x, y, z) {
+    this._position = { x, y, z }
+    // No _scheduleSave here — position is saved alongside the next flag/item change,
+    // or you can call _flush() directly from Engine on pause/quit
+  }
+
+  /** Returns last saved position, or null for a new player */
+  getSavedPosition() {
+    return this._position
   }
 
   // ── Player ID helpers ──────────────────────────────────────────────────────

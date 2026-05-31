@@ -13,7 +13,7 @@ const router = Router()
 router.get('/:playerId', async (req, res) => {
   try {
     const save = await PlayerSave.findOne({ playerId: req.params.playerId })
-    if (!save) return res.json(null)   // new player — client starts fresh
+    if (!save) return res.json(null)
     res.json({
       position:  save.position  ?? { x: 0, y: 2, z: 0 },
       inventory: save.inventory ?? {},
@@ -29,15 +29,20 @@ router.get('/:playerId', async (req, res) => {
 router.post('/:playerId', async (req, res) => {
   const { position, inventory, flags } = req.body
   try {
+    const setFields = {
+      inventory: inventory ?? {},
+      flags:     flags     ?? {},
+      updatedAt: new Date(),
+    }
+    if (position) setFields.position = position
+
     await PlayerSave.findOneAndUpdate(
       { playerId: req.params.playerId },
       {
-        position:  position  ?? undefined,
-        inventory: inventory ?? {},
-        flags:     flags     ?? {},
-        updatedAt: new Date(),
+        $set: setFields,
+        $setOnInsert: { playerId: req.params.playerId },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true, strict: false }
     )
     res.json({ ok: true })
   } catch (err) {

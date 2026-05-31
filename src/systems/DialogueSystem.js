@@ -1,32 +1,14 @@
-/**
- * DialogueSystem
- *
- * Line fields:
- *   text          — displayed text
- *   speaker       — overrides NPC name ('You', 'Narrator', etc.)
- *   next          — key of next response; UI advances on Space / tap, no choice buttons shown
- *   choices       — player choice buttons (used when next is absent)
- *   gives / takesItems / setsFlag / requires / requiresFlag — side-effects
- *
- * Events emitted:
- *   'line'              — { speaker, text, choices, isChained }
- *   'thinking'          — AI is fetching
- *   'conversation-start'
- *   'conversation-end'
- *   'item-gained'       — { itemId }
- */
-
 export class DialogueSystem extends EventTarget {
   constructor(inventory) {
     super()
     this.inventory  = inventory
+    this.playerId   = inventory.playerId
     this.active     = false
     this.currentNPC = null
     this.audio      = null
-    this._pendingNext = null   // next-key waiting for Space/tap to fire
+    this._pendingNext = null
   }
 
-  // ── Start conversation ─────────────────────────────────────────────────────
   async startConversation(npc) {
     if (this.active) return
     this.active       = true
@@ -34,12 +16,11 @@ export class DialogueSystem extends EventTarget {
     this._pendingNext = null
     document.exitPointerLock?.()
 
-    const opening = npc.getOpening()
+    const opening = npc.getOpening(this.inventory)
     await this.showLine(opening, npc)
     this.dispatchEvent(new CustomEvent('conversation-start', { detail: { npc } }))
   }
 
-  // ── Show a line ────────────────────────────────────────────────────────────
   async showLine(line, npc) {
     const isChained = !!line.next
     this._pendingNext = line.next ?? null
@@ -48,7 +29,6 @@ export class DialogueSystem extends EventTarget {
       ? []
       : (line.choices ?? []).filter(c => this._choiceVisible(c))
 
-    // Guarantee an exit on real-choice lines
     if (!isChained && !choices.find(c => c.id === '__end__')) {
       choices.push({ id: '__end__', label: 'Leave.' })
     }
@@ -59,15 +39,12 @@ export class DialogueSystem extends EventTarget {
       detail: { speaker, text: line.text, choices, isChained }
     }))
 
-    // Voice for NPC lines: play when no speaker override, or when speaker matches the NPC's own name
-    // line.voiceId overrides the NPC's voice (use for secondary characters like Mannie)
     const voiceToUse = line.voiceId ?? ((!line.speaker || line.speaker === npc?.data.name) ? npc?.data.voiceId : null)
     if (voiceToUse) {
       this._playVoice(line.text, voiceToUse).catch(() => {})
     }
   }
 
-  // ── Space / tap advance (called by UI for chained lines) ──────────────────
   async advanceChain() {
     if (!this._pendingNext || !this.currentNPC) return
     const key = this._pendingNext
@@ -79,7 +56,6 @@ export class DialogueSystem extends EventTarget {
     }
   }
 
-  // ── Player chose a response ────────────────────────────────────────────────
   async playerChoice(choiceId) {
     if (!this.currentNPC) return
     const npc = this.currentNPC
@@ -98,26 +74,34 @@ export class DialogueSystem extends EventTarget {
     }
   }
 
-  // ── Choice visibility ──────────────────────────────────────────────────────
   _choiceVisible(choice) {
     if (choice.requires?.length && !this.inventory.hasAll(choice.requires)) return false
     if (choice.requiresFlag !== undefined && !this.inventory.getFlag(choice.requiresFlag)) return false
+    if (choice.requiresCount) {
+      const { itemId, min } = choice.requiresCount
+      if (this.inventory.count(itemId) < min) return false
+    }
     return true
   }
 
-  // ── Response side-effects ──────────────────────────────────────────────────
   _applyResponseEffects(response) {
+    let dirty = false
     for (const id of response.gives ?? []) {
       this.inventory.add(id)
       this.dispatchEvent(new CustomEvent('item-gained', { detail: { itemId: id } }))
+      dirty = true
     }
     for (const id of response.takesItems ?? []) {
       this.inventory.remove(id)
+      dirty = true
     }
-    if (response.setsFlag) this.inventory.applyFlags(response.setsFlag)
+    if (response.setsFlag) {
+      this.inventory.applyFlags(response.setsFlag)
+      dirty = true
+    }
+    if (dirty) this.inventory._flush()
   }
 
-  // ── AI fallback ────────────────────────────────────────────────────────────
   async _aiResponse(playerText, npc) {
     this.dispatchEvent(new CustomEvent('thinking', { detail: { npc } }))
     try {
@@ -126,6 +110,7 @@ export class DialogueSystem extends EventTarget {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
           npcId:            npc.data.id,
+          playerId:         this.playerId,
           personality:      npc.data.personality,
           history:          npc.getHistory(),
           playerText,
@@ -149,7 +134,6 @@ export class DialogueSystem extends EventTarget {
       items.map(({ item, quantity }) => quantity > 1 ? `${item.name} ×${quantity}` : item.name).join(', ') + '.'
   }
 
-  // ── ElevenLabs voice ──────────────────────────────────────────────────────
   async _playVoice(text, voiceId) {
     if (this.audio) { this.audio.pause(); this.audio = null }
     const res = await fetch('/api/voice/speak', {
@@ -165,7 +149,6 @@ export class DialogueSystem extends EventTarget {
     this.audio.onended = () => URL.revokeObjectURL(url)
   }
 
-  // ── End conversation ───────────────────────────────────────────────────────
   endConversation() {
     this.active       = false
     this.currentNPC   = null

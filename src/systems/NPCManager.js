@@ -176,8 +176,21 @@ export class NPC {
   setPromptVisible(v) { this.prompt.visible = v }
   getPosition()       { return this.mesh.position }
 
-  getOpening() {
+  getOpening(inventory) {
     const script = this.data.script ?? {}
+    // openingIf: array of { requiresFlag, requiresCount, opening } checked in order.
+    // First matching entry wins; falls back to script.opening.
+    if (script.openingIf?.length && inventory) {
+      for (const branch of script.openingIf) {
+        let match = true
+        if (branch.requiresFlag !== undefined && !inventory.getFlag(branch.requiresFlag)) match = false
+        if (branch.requiresCount) {
+          const { itemId, min } = branch.requiresCount
+          if (inventory.count(itemId) < min) match = false
+        }
+        if (match) return branch.opening
+      }
+    }
     return script.opening ?? { text: 'Hello.', choices: [{ id: '__end__', label: 'Goodbye.' }] }
   }
 
