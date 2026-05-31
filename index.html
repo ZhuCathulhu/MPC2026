@@ -3,163 +3,63 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MPC2026</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
-    canvas { display: block; }
-
-    #hint {
-      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.6); color: #aaa;
-      font: 13px/1.5 monospace; padding: 7px 16px; border-radius: 20px;
-      pointer-events: none; text-align: center; white-space: nowrap;
-    }
-
-    #joystick-zone {
-      position: fixed; bottom: 30px; left: 30px;
-      width: 110px; height: 110px;
-      touch-action: none; z-index: 10;
-    }
-
-    #loading {
-      position: fixed; inset: 0; background: #0a0a0a;
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 14px;
-      color: #666; font: 13px/1 monospace;
-      transition: opacity 0.6s; z-index: 100;
-    }
-    #loading.hidden { opacity: 0; pointer-events: none; }
-    #loading-bar-wrap { width: 200px; height: 2px; background: #222; border-radius: 1px; overflow: hidden; }
-    #loading-bar { height: 100%; background: #666; width: 0%; transition: width 0.2s; }
-
-    /* ── Talk button (mobile) ── */
-    #talk-btn {
-      position: fixed; bottom: 40px; right: 30px;
-      width: 64px; height: 64px; border-radius: 50%;
-      border: 2px solid rgba(120,200,160,0.8);
-      background: rgba(0,0,0,0.4);
-      color: rgba(120,200,160,0.9);
-      font: 700 11px/1 Georgia, serif;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      cursor: pointer; display: none; z-index: 20;
-      align-items: center; justify-content: center;
-      touch-action: manipulation;
-    }
-    #talk-btn.visible { display: flex; }
-
-    /* ── Dialogue box ── */
-    #dialogue-box {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      padding: 0 0 env(safe-area-inset-bottom);
-      z-index: 200; display: none;
-      animation: slide-up 0.22s ease;
-    }
-    #dialogue-box.open { display: block; }
-    @keyframes slide-up {
-      from { transform: translateY(16px); opacity: 0; }
-      to   { transform: translateY(0);    opacity: 1; }
-    }
-    #dialogue-inner {
-      margin: 0 auto; max-width: 760px;
-      background: linear-gradient(180deg, rgba(10,8,6,0.94) 0%, rgba(6,5,3,0.98) 100%);
-      border-top: 1px solid rgba(200,184,154,0.3);
-      border-left: 1px solid rgba(200,184,154,0.12);
-      border-right: 1px solid rgba(200,184,154,0.12);
-      border-radius: 12px 12px 0 0;
-      padding: 18px 24px 22px;
-      backdrop-filter: blur(10px);
-    }
-    #dialogue-speaker {
-      font: 600 0.7rem/1 Georgia, serif;
-      letter-spacing: 0.22em; text-transform: uppercase;
-      color: #c8b89a; margin-bottom: 8px; opacity: 0.85;
-    }
-    #dialogue-text {
-      font: 400 1.2rem/1.6 Georgia, serif;
-      color: #e8ddd0; min-height: 2.4em; margin-bottom: 14px;
-    }
-    #dialogue-text.thinking::after {
-      content: ''; display: inline-block;
-      width: 4px; height: 4px; border-radius: 50%;
-      background: #c8b89a; margin-left: 6px;
-      animation: pulse 0.8s ease infinite; vertical-align: middle;
-    }
-    @keyframes pulse {
-      0%,100% { opacity:0.3; transform:scale(0.8); }
-      50%      { opacity:1;   transform:scale(1.2); }
-    }
-    #dialogue-choices {
-      display: flex; flex-direction: column; gap: 5px;
-      border-top: 1px solid rgba(200,184,154,0.1);
-      padding-top: 12px;
-    }
-    .choice-btn {
-      background: none;
-      border: 1px solid rgba(200,184,154,0.16);
-      border-radius: 6px; color: #c8d4b0;
-      font: 400 1rem/1.4 Georgia, serif;
-      padding: 7px 14px; text-align: left;
-      cursor: pointer;
-      transition: background 0.12s, border-color 0.12s, color 0.12s;
-    }
-    .choice-btn::before { content: '›'; margin-right: 9px; color: rgba(200,184,154,0.45); }
-    .choice-btn:hover { background: rgba(200,184,154,0.07); border-color: rgba(200,184,154,0.38); color: #e8ddd0; }
-    .choice-btn[data-id="__end__"] { color: rgba(200,184,154,0.45); border-color: rgba(200,184,154,0.08); }
-    .choice-btn[data-id="__end__"]:hover { color: rgba(200,184,154,0.85); }
-
-    /* Free-text input */
-    #dialogue-free-wrap {
-      display: flex; gap: 8px;
-      margin-top: 10px;
-      border-top: 1px solid rgba(200,184,154,0.08);
-      padding-top: 10px;
-    }
-    #dialogue-free-input {
-      flex: 1;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(200,184,154,0.18);
-      border-radius: 6px; color: #e8ddd0;
-      font: 400 1rem/1 Georgia, serif;
-      padding: 7px 11px; outline: none;
-      transition: border-color 0.14s;
-    }
-    #dialogue-free-input:focus { border-color: rgba(200,184,154,0.48); }
-    #dialogue-free-input::placeholder { color: rgba(200,184,154,0.22); font-style: italic; }
-    #dialogue-free-send {
-      background: rgba(200,184,154,0.09);
-      border: 1px solid rgba(200,184,154,0.22);
-      border-radius: 6px; color: #c8b89a;
-      font: 400 0.88rem/1 Georgia, serif;
-      padding: 7px 13px; cursor: pointer;
-      transition: background 0.12s;
-    }
-    #dialogue-free-send:hover { background: rgba(200,184,154,0.17); }
-  </style>
+  <title>The Last Ship — A World Forgotten</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="loading">
-    <div id="loading-label">loading…</div>
-    <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
-  </div>
 
-  <div id="hint">WASD to move · Click canvas to look</div>
-  <div id="joystick-zone"></div>
-  <button id="talk-btn">Talk</button>
-
-  <!-- Dialogue overlay -->
-  <div id="dialogue-box">
-    <div id="dialogue-inner">
-      <div id="dialogue-speaker"></div>
-      <div id="dialogue-text"></div>
-      <div id="dialogue-choices"></div>
-      <div id="dialogue-free-wrap">
-        <input id="dialogue-free-input" type="text" placeholder="Say something else…" maxlength="200" />
-        <button id="dialogue-free-send">Ask</button>
-      </div>
+  <!-- ── Loading ───────────────────────────────────────────── -->
+  <div id="loading" aria-live="polite">
+    <span id="loading-label">Loading…</span>
+    <div id="loading-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+      <div id="loading-bar"></div>
     </div>
   </div>
 
+  <!-- ── Main menu ─────────────────────────────────────────── -->
+  <main id="main-menu" class="hidden" aria-label="Main menu">
+    <canvas id="menu-grain" aria-hidden="true"></canvas>
+
+    <header class="menu-title-area">
+
+      <img class="menu-title" src="assets/title.png" alt="The Last Ship">
+
+      <nav class="menu-nav" aria-label="Game menu">
+        <button id="btn-play" class="btn-hero" type="button">
+          <img src="assets/btn-start.png" alt="Start Game">
+        </button>
+      </nav>
+    </header>
+
+  </main>
+
+  <!-- ── Story / context screens ───────────────────────────── -->
+  <section id="story-screen" class="hidden" aria-label="Story introduction">
+
+    <div class="story-card" aria-live="polite">
+      <p id="story-text" class="story-text"></p>
+      <nav class="story-nav" aria-label="Story navigation">
+        <button id="btn-back" type="button">
+          <img src="assets/btn-back.png" alt="Back">
+        </button>
+
+          <span id="story-counter" aria-hidden="true"></span>
+
+        <button id="btn-next" type="button">
+          <img src="assets/btn-next.png" alt="Next">
+        </button>
+      </nav>
+    </div>
+
+  </section>
+
+  <!-- ── In-game UI ─────────────────────────────────────────── -->
+  <p id="hint" role="status" aria-live="polite">
+    WASD to move · Click to look · Shift releases mouse
+  </p>
+  <div id="joystick-zone" aria-hidden="true"></div>
+
+  <!-- ── Scripts ───────────────────────────────────────────── -->
   <script type="importmap">
   {
     "imports": {
@@ -175,7 +75,24 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
     import nipplejs from 'nipplejs'
 
-    const gltfLoader = new GLTFLoader()
+    // ── Film grain ────────────────────────────────────────────────────────
+    const grainCanvas = document.getElementById('menu-grain')
+    const gctx = grainCanvas.getContext('2d')
+    function drawGrain() {
+      grainCanvas.width  = innerWidth
+      grainCanvas.height = innerHeight
+      const id = gctx.createImageData(innerWidth, innerHeight)
+      const d  = id.data
+      for (let i = 0; i < d.length; i += 4) {
+        const v = Math.random() * 255 | 0
+        d[i]   = v
+        d[i+1] = v * 0.15 | 0
+        d[i+2] = v * 0.08 | 0
+        d[i+3] = Math.random() * 38 | 0
+      }
+      gctx.putImageData(id, 0, 0)
+    }
+    drawGrain()
 
     // ── Renderer ──────────────────────────────────────────────────────────
     const renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -190,33 +107,36 @@
 
     // ── Scene ─────────────────────────────────────────────────────────────
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x1a1a2e)
-    scene.fog = new THREE.Fog(0x1a1a2e, 25, 65)
+    scene.background = new THREE.Color(0x100806)
+    scene.fog = new THREE.Fog(0x100806, 22, 60)
 
     // ── Camera ────────────────────────────────────────────────────────────
     const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.01, 200)
     camera.position.set(0, 3, 6)
 
     // ── Lights ────────────────────────────────────────────────────────────
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6))
-    const sun = new THREE.DirectionalLight(0xffeedd, 2)
-    sun.position.set(10, 20, 10)
-    sun.castShadow = true
-    sun.shadow.mapSize.setScalar(1024)
-    scene.add(sun)
+    scene.add(new THREE.AmbientLight(0x331108, 1.0))
+    const keyLight = new THREE.DirectionalLight(0xff4422, 1.8)
+    keyLight.position.set(-8, 16, 6)
+    keyLight.castShadow = true
+    keyLight.shadow.mapSize.setScalar(1024)
+    scene.add(keyLight)
+    const rimLight = new THREE.DirectionalLight(0x220000, 0.6)
+    rimLight.position.set(10, 4, -8)
+    scene.add(rimLight)
 
     // ── Player ────────────────────────────────────────────────────────────
     const player = new THREE.Group()
     const body = new THREE.Mesh(
       new THREE.CapsuleGeometry(0.3, 0.8, 4, 8),
-      new THREE.MeshLambertMaterial({ color: 0x88aaff })
+      new THREE.MeshLambertMaterial({ color: 0x1a0a06 })
     )
     body.position.y = 0.7
     body.castShadow = true
     player.add(body)
     const eye = new THREE.Mesh(
       new THREE.SphereGeometry(0.08, 6, 6),
-      new THREE.MeshBasicMaterial({ color: 0xffffff })
+      new THREE.MeshBasicMaterial({ color: 0xcc2200 })
     )
     eye.position.set(0, 1.1, -0.28)
     player.add(eye)
@@ -516,11 +436,76 @@ Never break character.`,
     // ── World loading ─────────────────────────────────────────────────────
     function dismissLoading() {
       const el = document.getElementById('loading')
-      if (!el) return
+      if (!el) { cb && cb(); return }
       el.classList.add('hidden')
-      setTimeout(() => el.remove(), 700)
+      setTimeout(() => { el.remove(); cb && cb() }, 700)
     }
 
+    function showMenu() {
+      document.getElementById('main-menu').classList.remove('hidden')
+    }
+
+    // ── Story slides ──────────────────────────────────────────────────────
+    const storySlides = [
+      "It’s the roaring 1950s in the island of Diécada. The European Democratic Kingdom is cracking down on their exports: sugar, bananas, slave labour, cocaine. Produce rots in sheds. Resentment boils in empty pots and empty stomachs.",
+      "You are the last remaining EDK diplomat still operating. \n\nYou’re hiding out in Diécada and you’re not going back.",
+      "Things are primed to reach an explosive point on August 30th, when the ships from the capital come in for their last harvest of blood fruit. \n\nThere are 3 days remaining.",
+    ]
+
+    let currentSlide = 0
+
+    function renderSlide() {
+      const text    = document.getElementById('story-text')
+      const counter = document.getElementById('story-counter')
+      const btnBack = document.getElementById('btn-back')
+      const btnNext = document.getElementById('btn-next')
+
+      text.classList.remove('visible')
+      setTimeout(() => {
+        text.innerText = storySlides[currentSlide]
+        counter.textContent = `${currentSlide + 1} / ${storySlides.length}`
+        btnBack.disabled = currentSlide === 0
+        const isLast = currentSlide === storySlides.length - 1
+  
+        text.classList.add('visible')
+      }, 600)
+    }
+
+    function showStory() {
+      document.getElementById('main-menu').classList.add('hidden')
+      const screen = document.getElementById('story-screen')
+      screen.classList.remove('hidden')
+      screen.classList.add('animate')    // ← triggers animations now that it's visible
+      renderSlide()
+    }
+
+    function enterGame() {
+      document.getElementById('story-screen').classList.add('hidden')
+      setTimeout(() => {
+        document.getElementById('story-screen').remove()
+        document.body.classList.add('game-active')
+        document.getElementById('hint').style.display = 'block'
+        document.getElementById('joystick-zone').style.display = 'block'
+        gameRunning = true
+      }, 600)
+    }
+
+    // ── Menu & story events ───────────────────────────────────────────────
+    document.getElementById('btn-play').addEventListener('click', showStory)
+    document.getElementById('btn-back').addEventListener('click', () => {
+      if (currentSlide > 0) { currentSlide--; renderSlide() }
+    })
+    document.getElementById('btn-next').addEventListener('click', () => {
+      if (currentSlide < storySlides.length - 1) {
+        currentSlide++
+        renderSlide()
+      } else {
+        enterGame()
+      }
+    })
+
+    // ── GLB load ──────────────────────────────────────────────────────────
+    const gltfLoader = new GLTFLoader()
     let spinTarget = null
 
     gltfLoader.load(
@@ -530,13 +515,13 @@ Never break character.`,
           if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; worldMeshes.push(o) }
         })
         scene.add(gltf.scene)
-        dismissLoading()
+        dismissLoading(showMenu)
       },
       (xhr) => {
         if (xhr.total) {
           const pct = Math.round((xhr.loaded / xhr.total) * 100)
           document.getElementById('loading-bar').style.width = pct + '%'
-          document.getElementById('loading-label').textContent = `loading world… ${pct}%`
+          document.getElementById('loading-label').textContent = `Loading… ${pct}%`
         }
       },
       () => {
@@ -552,6 +537,7 @@ Never break character.`,
       }
     )
 
+    // ── Pointer lock ──────────────────────────────────────────────────────
     // ── Pointer lock ──────────────────────────────────────────────────────
     let mouseLocked = false
     renderer.domElement.addEventListener('click', () => {
@@ -591,7 +577,7 @@ Never break character.`,
     const manager = nipplejs.create({
       zone: document.getElementById('joystick-zone'),
       mode: 'static', position: { left: '50%', top: '50%' },
-      color: 'rgba(140,160,255,0.5)', size: 100,
+      color: 'rgba(180,40,20,0.4)', size: 100,
     })
     manager.on('move', (_, d) => { joyX = d.vector?.x ?? 0; joyZ = -(d.vector?.y ?? 0) })
     manager.on('end',  ()     => { joyX = 0; joyZ = 0 })
@@ -605,6 +591,7 @@ Never break character.`,
       const dt = Math.min(clock.getDelta(), 0.1)
 
       if (spinTarget) spinTarget.rotation.y += dt * 0.8
+      if (!gameRunning) { renderer.render(scene, camera); return }
 
       // NPC: face player, tick animations, show/hide prompt
       let anyNearby = false
@@ -699,6 +686,7 @@ Never break character.`,
       camera.aspect = innerWidth / innerHeight
       camera.updateProjectionMatrix()
       renderer.setSize(innerWidth, innerHeight)
+      drawGrain()
     })
   </script>
 </body>
