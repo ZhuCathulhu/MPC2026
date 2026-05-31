@@ -59,9 +59,11 @@ export class DialogueSystem extends EventTarget {
       detail: { speaker, text: line.text, choices, isChained }
     }))
 
-    // Voice only for NPC lines
-    if (npc?.data.voiceId && !line.speaker) {
-      this._playVoice(line.text, npc.data.voiceId).catch(() => {})
+    // Voice for NPC lines: play when no speaker override, or when speaker matches the NPC's own name
+    // line.voiceId overrides the NPC's voice (use for secondary characters like Mannie)
+    const voiceToUse = line.voiceId ?? ((!line.speaker || line.speaker === npc?.data.name) ? npc?.data.voiceId : null)
+    if (voiceToUse) {
+      this._playVoice(line.text, voiceToUse).catch(() => {})
     }
   }
 
