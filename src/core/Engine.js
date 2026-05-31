@@ -203,14 +203,46 @@ export class Engine {
     const dlgFreeWrap  = document.getElementById('dialogue-free-wrap')
     const dlgFreeInput = document.getElementById('dialogue-free-input')
     const dlgFreeSend  = document.getElementById('dialogue-free-send')
-    let typewriterTimer = null
 
-    const showLine = (speaker, text, choices) => {
+    // ── Skip button (always visible in conversation) ───────────────────────
+    const dlgSkip = document.createElement('button')
+    dlgSkip.id        = 'dialogue-skip'
+    dlgSkip.textContent = 'Skip'
+    document.getElementById('dialogue-inner').appendChild(dlgSkip)
+    dlgSkip.addEventListener('click', () => this.dialogue.endConversation())
+
+    let typewriterTimer = null
+    let currentFullText = ''
+    let isChained       = false
+
+    // Instantly complete the typewriter and optionally advance
+    const flushTypewriter = () => {
+      if (typewriterTimer) {
+        clearInterval(typewriterTimer)
+        typewriterTimer = null
+        dlgText.textContent = currentFullText
+        if (isChained) {
+          showContinueHint()
+        } else {
+          showChoices(_pendingChoices)
+        }
+      }
+    }
+
+    let _pendingChoices = []
+
+    const showLine = (speaker, text, choices, chained) => {
       dlgSpeaker.textContent = speaker
       dlgText.classList.remove('thinking')
-      dlgChoices.innerHTML = ''
+      dlgChoices.innerHTML   = ''
       dlgFreeWrap.style.display = 'none'
+      hideContinueHint()
       if (typewriterTimer) clearInterval(typewriterTimer)
+
+      currentFullText = text
+      isChained       = chained
+      _pendingChoices = choices ?? []
+
       dlgText.textContent = ''
       let i = 0
       typewriterTimer = setInterval(() => {
@@ -218,7 +250,11 @@ export class Engine {
         if (i >= text.length) {
           clearInterval(typewriterTimer)
           typewriterTimer = null
-          showChoices(choices)
+          if (chained) {
+            showContinueHint()
+          } else {
+            showChoices(_pendingChoices)
+          }
         }
       }, 18)
     }
@@ -236,19 +272,58 @@ export class Engine {
       dlgFreeWrap.style.display = 'flex'
     }
 
+    // Subtle "press Enter" hint shown after chained lines finish typing
+    const continueHint = document.createElement('div')
+    continueHint.id = 'dialogue-continue-hint'
+    continueHint.textContent = 'Enter to continue'
+    document.getElementById('dialogue-inner').appendChild(continueHint)
+
+    const showContinueHint = () => continueHint.classList.add('visible')
+    const hideContinueHint = () => continueHint.classList.remove('visible')
+
+    // ── Space bar handler ─────────────────────────────────────────────────
+    window.addEventListener('keydown', e => {
+      if (!this.dialogue.active) return
+
+      if (e.code === 'Enter') {
+        e.preventDefault()
+        if (typewriterTimer) {
+          // Still typing — complete instantly
+          flushTypewriter()
+        } else if (isChained) {
+          // Waiting on a chained line — advance
+          hideContinueHint()
+          this.dialogue.advanceChain()
+        }
+        // Real choices visible — Space does nothing; player must click
+      }
+
+      if (e.code === 'Escape') this.dialogue.endConversation()
+    })
+
+    // ── Tap / click on the text area also advances chained lines ─────────
+    dlgText.style.cursor = 'default'
+    dlgText.addEventListener('click', () => {
+      if (!this.dialogue.active) return
+      if (typewriterTimer) { flushTypewriter(); return }
+      if (isChained) { hideContinueHint(); this.dialogue.advanceChain() }
+    })
+
     this.dialogue.addEventListener('line', e => {
       dlgBox.classList.add('open')
-      showLine(e.detail.speaker, e.detail.text, e.detail.choices)
+      showLine(e.detail.speaker, e.detail.text, e.detail.choices, e.detail.isChained)
     })
     this.dialogue.addEventListener('thinking', () => {
       dlgText.classList.add('thinking')
       dlgChoices.innerHTML = ''
       dlgFreeWrap.style.display = 'none'
+      hideContinueHint()
     })
     this.dialogue.addEventListener('conversation-end', () => {
       dlgBox.classList.remove('open')
       dlgChoices.innerHTML = ''
       dlgText.textContent  = ''
+      hideContinueHint()
       if (typewriterTimer) { clearInterval(typewriterTimer); typewriterTimer = null }
       document.getElementById('joystick-zone').classList.add('visible')
       document.getElementById('btn-jump').classList.add('visible')
@@ -278,10 +353,6 @@ export class Engine {
       document.getElementById('hint').textContent = locked
         ? 'WASD to move · Esc to release mouse'
         : 'WASD to move · Click canvas to look'
-    })
-
-    window.addEventListener('keydown', e => {
-      if (e.code === 'Escape' && this.dialogue.active) this.dialogue.endConversation()
     })
   }
 

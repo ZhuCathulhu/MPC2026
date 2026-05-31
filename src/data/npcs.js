@@ -1,235 +1,228 @@
 /**
- * npcs.js — NPC definitions with item-aware dialogue
+ * npcs.js — NPC definitions
  *
- * New fields on choices / responses:
- *
- *   requires: ['item_id', ...]
- *     This choice/response is only shown if the player has ALL listed items.
- *
- *   requiresFlag: 'flag_name'
- *     Only shown if player.flags[flag_name] is truthy.
- *
- *   gives: ['item_id', ...]
- *     When this response plays, these items are added to the player's inventory.
- *
- *   takesItems: ['item_id', ...]
- *     When this response plays, these items are REMOVED from inventory.
- *
- *   setsFlag: { flag_name: value }
- *     Sets an arbitrary quest flag when this response plays.
- *     Use strings, booleans, or numbers. Flags persist to MongoDB.
+ * Line fields:
+ *   text        — displayed text
+ *   speaker     — overrides NPC name. Use 'You', 'Narrator', or omit for NPC voice.
+ *   next        — key of the next response to auto-advance to (shows "…" button)
+ *   choices     — player choice buttons (omit when using `next`)
+ *   gives / takesItems / setsFlag / requires / requiresFlag — as before
  */
 
 export const NPCS = [
   {
-    id:          'innkeeper',
-    name:        'Mira',
-    personality: `You are Mira, a tired but warm innkeeper in a medieval fantasy village.
-You've run the Silver Hare inn for 20 years. You're pragmatic, slightly sarcastic,
-and deeply loyal to regular customers. You know local gossip.
-You speak in short, direct sentences. Never break character.`,
+    id:          'earl',
+    name:        'Earl',
+    personality: `You are Earl, a tired, pragmatic fixer and mid-level diplomat for the EDK.
+You've been stationed in Diécada for twenty years running intelligence out of the town hall.
+You are about to fire the player character — a fellow diplomat — for her own safety.
+You feel guilty but won't show it. You speak in short, careful sentences.
+Never break character.`,
     voiceId:     'EXAVITQu4vr4xnSDxMaL',
     modelPath:   '/assets/base.glb',
-    spawnPosition: [2, 0, -6],
+    spawnPosition: [1, 0, 1],
     color:       0x8B6F47,
 
     script: {
+      // ── Opening: first line of the cutscene ──────────────────────────────
       opening: {
-        text: "You look like you've been walking for days. Hungry?",
-        choices: [
-          { id: 'hungry_yes',        label: 'Starving, actually.' },
-          { id: 'hungry_no',         label: "I'm fine. What's going on in town?" },
-          { id: 'room',              label: 'I need a room for the night.' },
-          // Only shown if player found the sulfur sample
-          { id: 'show_sulfur',       label: 'I found something at the mill site.',
-            requires: ['sulfur_sample'] },
-          { id: '__end__',           label: 'Just passing through.' },
-        ]
+        speaker: 'You',
+        text:    '"That\'s it? After five years?"',
+        next:    'earl_02',
       },
+
       responses: {
 
-        hungry_yes: {
-          text: "Stew's two copper. Sit down, I'll bring it over.",
-          choices: [
-            { id: 'pay_stew',   label: 'Here, take it.',          requires: ['copper_coin'] },
-            { id: 'broke',      label: "I don't have any coin." },
-            { id: '__end__',    label: 'Actually, I need to go.' },
-          ]
+        earl_02: {
+          speaker: 'Earl',
+          text:    '"It\'s the best I can do for you."',
+          next:    'narr_01',
         },
 
-        pay_stew: {
-          text: "Good. Don't spill it on my floor.",
-          takesItems: ['copper_coin'],
+        narr_01: {
+          speaker: ' ',
+          text:    'We\'re standing in Diécada\'s town hall. It\'s a sweltering early August, and the air conditioning blows softly through the room. Goosebumps rise across my back as I stand sweating in my Dolce suit, watching my boss wring his hands.',
+          next:    'earl_03',
+        },
+
+        earl_03: {
+          speaker: 'Earl',
+          text:    '"Don\'t look like that. C\'mon — you\'re a smart girl. Plenty of spots in the world for you. I\'d bet all of them are better than this backwater town."',
+          next:    'you_01',
+        },
+
+        you_01: {
+          speaker: 'You',
+          text:    '"Oh, right. Like the Kingdom? They just love me back there. I\'ve been flushing their recall papers for the last three months. You\'ve helped me cover it up!"',
+          next:    'you_02',
+        },
+
+        you_02: {
+          speaker: 'You',
+          text:    '"What the hell is this? Really, now?"',
+          next:    'earl_silence',
+        },
+
+        earl_silence: {
+          speaker: 'Earl',
+          text:    '"..."',
+          next:    'narr_02',
+        },
+
+        narr_02: {
+          speaker: ' ',
+          text:    'He looks out the window nervously. There\'s nobody out there — the sun beating down on empty pavement.',
+          next:    'earl_04',
+        },
+
+        earl_04: {
+          speaker: 'Earl',
+          text:    '"... Five years is a long time. Diécada isn\'t what she used to be, you know."',
+          // Branch point — player speaks
+          choices: [
+            { id: 'cynical',    label: "Not since the Kingdom's picked her to the bone." },
+            { id: 'nostalgic',  label: "It\'s the same town I knew and loved, Earl." },
+          ],
+        },
+
+        // ── Cynical branch ────────────────────────────────────────────────
+        cynical: {
+          speaker: 'Earl',
+          text:    '"Please. You\'re starting to sound like Jimm. It\'s talk like that… that makes me sure you can\'t stay."',
+          next:    'cynical_02',
+        },
+        cynical_02: {
+          speaker: 'Earl',
+          text:    '"It\'s too violent here. Too reckless. This place is a powder keg."',
+          next:    'earl_farewell',
+        },
+
+        // ── Nostalgic branch ──────────────────────────────────────────────
+        nostalgic: {
+          speaker: ' ',
+          text:    'For a moment it seems like he might relent. He shakes his head, then shakes it again, like a flybitten mule.',
+          next:    'nostalgic_02',
+        },
+        nostalgic_02: {
+          speaker: 'Earl',
+          text:    '"Maybe someday."',
+          next:    'earl_farewell',
+          /*takesItems: ['copper_coin'],
           // Give a loyalty token after paying twice (flag tracks it)
           choices: [{ id: '__end__', label: "Wouldn't dream of it." }]
+        },*/
         },
 
-        hungry_no: {
-          text: "Ha. Town's a mess. Old Rennick's mill burned three nights ago. Nobody knows why.",
+        // ── Shared closing sequence ────────────────────────────────────────
+        earl_farewell: {
+          speaker: 'Earl',
+          text:    '"Go on. Pack up. Come visit us again — when this is all over."',
+          next:    'you_farewell',
+        },
+        you_farewell: {
+          speaker: 'You',
+          text:    '"And if the EDK doesn\'t send me to jail first. Right. Thanks for nothing, guv\'ner."',
+          next:    'narr_exit',
+        },
+        narr_exit: {
+          speaker: ' ',
+          text:    'The world slams me like a tide as I exit the town hall. The smell of salt air, tequila, and the rotting sweetness of a hundred crushed mangoes. A pair of farmers across the street nod at me, blowing clouds of wet white smoke. Diécada\'s harvest has just finished. The air is heavy with endings.',
+          next:    'narr_exit2',
+        },
+        narr_exit2: {
+          speaker: ' ',
+          text:    'I should get my things from Yolanda\'s down the street.',
           choices: [
-            { id: 'mill_more',  label: 'A mill fire? Was anyone hurt?' },
-            { id: 'rennick',    label: 'Who is Rennick?' },
-            { id: '__end__',    label: 'Interesting. Thanks.' },
-          ]
-        },
-
-        room: {
-          text: "Eight copper a night. Includes breakfast. I don't run a charity.",
-          choices: [
-            { id: 'take_room',  label: "Deal. I'll take it.",  requires: ['copper_coin'] },
-            { id: 'negotiate',  label: 'Can you do six?' },
-            { id: '__end__',    label: 'Too rich for me.' },
-          ]
-        },
-
-        take_room: {
-          text: "Room three, top of the stairs. Key's on the hook. Breakfast at dawn.",
-          takesItems: ['copper_coin'],
-          setsFlag:   { has_room: true },
-          choices: [{ id: '__end__', label: 'Thank you, Mira.' }]
-        },
-
-        negotiate: {
-          text: "Seven, and that's my final word.",
-          choices: [
-            { id: 'take_room', label: "Alright. Seven it is." },
-            { id: '__end__',   label: "No deal." },
-          ]
-        },
-
-        // ── Sulfur branch — only reachable if player has the sample ──────────
-        show_sulfur: {
-          text: "Where did you find this? ...That's from the mill floor, isn't it. "
-               + "I knew it wasn't lightning. You need to talk to Rennick's steward.",
-          takesItems: ['sulfur_sample'],
-          setsFlag:   { mira_knows_sulfur: true },
-          gives:      ['silver_hare_token'],    // rewards trust with a token
-          choices: [
-            { id: 'who_steward',  label: "Who is the steward?" },
-            { id: '__end__',      label: "I will. Thanks." },
-          ]
-        },
-
-        who_steward: {
-          text: "Aldric. Thin man, grey beard. Usually at the manor gates around midday.",
-          choices: [{ id: '__end__', label: "I'll find him." }]
-        },
-
-        // ── Standard branches ────────────────────────────────────────────────
-        broke: {
-          text: "Then you're eating air. I'm not a charity.",
-          choices: [
-            { id: 'beg',     label: "Please — I haven't eaten in two days." },
-            { id: '__end__', label: 'Fair enough.' },
-          ]
-        },
-        beg: {
-          text: "...Fine. One bowl. You owe me.",
-          choices: [{ id: '__end__', label: 'Thank you. Truly.' }]
-        },
-        mill_more: {
-          text: "Old Harren lost two fingers trying to drag his grandson out. The boy's fine. Harren's not.",
-          choices: [
-            { id: 'cause',   label: "What caused it?" },
-            { id: '__end__', label: 'That sounds terrible.' },
-          ]
-        },
-        cause: {
-          text: "That's the question, isn't it. Some say lightning. I say lightning doesn't smell like sulfur.",
-          setsFlag: { mira_mentioned_sulfur: true },
-          choices: [
-            { id: 'sulfur',  label: 'Sulfur? Like brimstone?' },
-            { id: '__end__', label: "I'll look into it." },
-          ]
-        },
-        sulfur: {
-          text: "Don't go looking into things you can't unlearn. That's my advice.",
-          choices: [{ id: '__end__', label: 'Noted.' }]
-        },
-        rennick: {
-          text: "Richest man in three villages. Owns half the farmland. Not well liked.",
-          choices: [
-            { id: 'rennick_where', label: 'Where does he live?' },
-            { id: '__end__',       label: 'I see. Thanks.' },
-          ]
-        },
-        rennick_where: {
-          text: "Manor up the north road. Big iron gate. You can't miss it — or the guards.",
-          choices: [{ id: '__end__', label: "I'll keep that in mind." }]
+            { id: '__end__', label: 'Walk away.' },
+          ],
         },
       }
     }
   },
 
   {
-    id:          'blacksmith',
-    name:        'Gareth',
-    personality: `You are Gareth, a young eager blacksmith apprentice.
-You're proud of your work but insecure about your skills compared to your master.
-You love talking about metallurgy and weapons. You speak with enthusiasm.
-Never break character.`,
-    voiceId:     'TxGEqnHWrfWFTfGW9XjX',
-    modelPath:   '/assets/base.glb',
-    spawnPosition: [-6, 0, -8],
-    color:       0x4a5a6a,
+    id: 'adriel',
+    name: 'Adriel',
+    personality: `Adriel is a local farmer and part-time smuggler. He\'s in his late 30s, with a weathered face and a quick smile. He\'s known for being friendly and talkative, always ready to share a story or lend a hand. He has a deep love for the land and often speaks about the importance of community and tradition. Despite his easygoing nature, Adriel is fiercely protective of his friends and family, and he\'s not afraid to stand up for what he believes in.`,
+    voiceId: 'EXAVITQu4vr4xnSDxMaL',
+    modelPath: '/assets/base.glb',
+    spawnPosition: [-2, 0, -1],
+    color: 0x6A994E,
 
-    script: {
-      opening: {
-        text: "Need a blade sharpened? I'm — well, the master's away, but I can handle it.",
-        choices: [
-          { id: 'sharpen',     label: 'My sword could use some work.' },
-          { id: 'master',      label: "Where's your master?" },
-          // Only shown if Mira told you about the sulfur and you have the sample
-          { id: 'ask_sulfur',  label: "Mira thinks the mill fire wasn't an accident.",
-            requiresFlag: 'mira_mentioned_sulfur' },
-          { id: '__end__',     label: "Just looking." },
-        ]
-      },
-      responses: {
-        sharpen: {
-          text: "Let me see it. ...This is fine steel. Where'd you get it?",
-          choices: [
-            { id: 'found_it', label: 'Found it.' },
-            { id: 'bought',   label: 'Bought it years ago.' },
-            { id: '__end__',  label: "That's my business." },
-          ]
-        },
-        master: {
-          text: "He left two days ago. Said he had business in Thornwall. Hasn't come back.",
-          choices: [
-            { id: 'worried',  label: "You seem worried." },
-            { id: '__end__',  label: 'I see. Good luck.' },
-          ]
-        },
-        worried: {
-          text: "He's always back by nightfall. Two days is... not normal for him.",
-          gives:    ['gareth_note'],   // slips you a note when he trusts you
-          setsFlag: { gareth_worried: true },
-          choices: [{ id: '__end__', label: "I'll keep an eye out." }]
+      script: {
+        opening: { speaker: 'Adriel', 
+          text: "“Hey, Miss Affairs! You don’t look so hot. Bad news?”",
+          next: 'adriel_02',
         },
 
-        ask_sulfur: {
-          text: "Sulfur? I... yes. Master mentioned the same smell the morning before he left. "
-               + "He seemed frightened. That's not like him at all.",
-          setsFlag: { gareth_linked_master: true },
-          choices: [
-            { id: 'master_connection', label: "Do you think they're connected?" },
-            { id: '__end__',           label: 'Stay safe, Gareth.' },
-          ]
-        },
-        master_connection: {
-          text: "I don't know. But if you find anything, please — come back and tell me.",
-          gives:    ['mill_key'],    // trusts you with the key to the mill ruins
-          setsFlag: { has_mill_key_source: 'gareth' },
-          choices: [{ id: '__end__', label: "I will." }]
-        },
+        responses: {
+          adriel_02: { speaker: 'You',
+            text: "“You could say that.”",
+            next: 'adriel_03',
+          },
 
-        found_it:  { text: "Huh. In a grave, or a fight?",
-          choices: [{ id: 'grave', label: 'An old ruin, actually.' }, { id: '__end__', label: "Does it matter?" }] },
-        grave:     { text: "Old ruins have good steel sometimes. Pre-war forging.",
-          choices: [{ id: '__end__', label: 'Interesting.' }] },
-        bought:    { text: "Good craft. Whoever made it knew what they were doing.",
-          choices: [{ id: '__end__', label: 'Thanks.' }] },
+          adriel_03: { speaker: 'Adriel',
+            text: " “And here I was thinking we could use your help with something.”",
+            next: 'adriel_04',
+          },
+          
+          adriel_04: { speaker: 'Mannie',
+            text: "“You sure about this?”",
+            choices: [
+              { id: 'know', label: 'I already know.' },
+              { id: 'trust', label: 'What, you don’t trust me?'},
+            ],
+          },
+          
+          know : { speaker: 'Adriel',
+            text: "“Ay, sure. Tell me what you know, then, big head.”",
+            next: 'adriel_05',
+          },
+          adriel_05: { speaker: 'You',
+            text: "“You guys– as in, the farmers union– aren’t planning to let the ships leave.”",
+            next: 'adriel_10',
+          },
+
+          trust : { speaker: 'Adriel',
+            text: " “Be serious, Manuel! This is Miss Affairs! Last time we got one over the Kingdom was thanks to her.”",
+            next: 'adriel_06',
+          },
+          adriel_06: { speaker: 'Mannie',
+            text: " “We wouldn’t need her if they’d actually listen to us. No offense.”",
+            next: 'adriel_07',
+          },
+          adriel_07: { speaker: ' ',
+            text: "His eyes are dark.",
+            next: 'adriel_08',
+          },
+          adriel_08: { speaker: 'You',
+            text: "“I get it. This is about the 30th.”",
+            next: 'adriel_09',
+          },
+          adriel_09: { speaker: 'You',
+            text: "“So you want to protest. I’m no snitch. Do what you want.”",
+            next: 'adriel_10',
+          },
+
+          adriel_10: { speaker: 'Adriel',
+            text: "“That’s almost right.”",
+            next: 'adriel_11',
+          },
+          adriel_11: { speaker: 'Adriel',
+            text: "“One way or another, we’re going to get what we deserve.”",
+            next: 'adriel_12',
+          },
+          adriel_12: { speaker: 'You',
+            text: "“Meaning?”",
+            next: 'adriel_13',
+          },
+          adriel_13: { speaker: ' ',
+            text: "He leans in, the bite of liquor on his breath: \n	Adriel. “Meaning we blow the fat bastards up.”",
+            takeItems: ['FoundOut'],
+            choices: [
+              { id: '__end__', label: 'Walk away.' },
+            ],
+        },
       }
     }
   }

@@ -35,8 +35,8 @@ export const ITEMS = [
     color:     0xddcc00,
   },
   {
-    id:        'gareth_note',
-    name:      "Gareth's Note",
+    id:        'You_note',
+    name:      "You's Note",
     desc:      'A hasty message — "Master never came back. Be careful."',
     icon:      '📜',
     color:     0xc8a87a,

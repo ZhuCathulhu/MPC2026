@@ -334,6 +334,7 @@ button {
 }
 
 #dialogue-inner {
+  position: relative;
   margin: 0 auto; max-width: 760px;
   background: linear-gradient(180deg, rgba(10,8,6,0.94) 0%, rgba(6,5,3,0.98) 100%);
   border-top:   1px solid rgba(200,184,154,0.3);
@@ -414,3 +415,41 @@ button {
   transition: background 0.12s;
 }
 #dialogue-free-send:hover { background: rgba(200,184,154,0.17); }
+
+/* ── Skip button ───────────────────────────────────────────────────────────── */
+#dialogue-skip {
+  position: absolute;
+  top: 14px; right: 18px;
+  background: none;
+  border: 1px solid rgba(200,184,154,0.18);
+  border-radius: 5px;
+  color: rgba(200,184,154,0.38);
+  font: 400 0.7rem/1 Georgia, serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+#dialogue-skip:hover {
+  color: rgba(200,184,154,0.85);
+  border-color: rgba(200,184,154,0.45);
+}
+
+/* ── "Enter to continue" hint ──────────────────────────────────────────────── */
+#dialogue-continue-hint {
+  font: 400 0.68rem/1 Georgia, serif;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(200,184,154,0.0);
+  text-align: right;
+  margin-top: 10px;
+  transition: color 0.4s;
+  pointer-events: none;
+}
+#dialogue-continue-hint.visible {
+  color: rgba(200,184,154,0.35);
+  animation: hint-pulse 2s ease-in-out infinite;
+}
+@keyframes hint-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
+}
