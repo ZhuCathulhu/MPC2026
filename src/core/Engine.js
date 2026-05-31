@@ -71,7 +71,9 @@ export class Engine {
     })
 
     this._setLoading(false)
-    document.getElementById('main-menu').classList.remove('hidden')
+    const menu = document.getElementById('main-menu')
+    menu.classList.remove('hidden')
+    setTimeout(() => menu.classList.add('ready'), 50)  // small tick so the class change triggers the transition
 
     this._startLoop()
     window.addEventListener('resize', () => this._onResize())

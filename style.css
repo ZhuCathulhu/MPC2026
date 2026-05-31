@@ -108,7 +108,12 @@ body.game-active #app canvas {
   margin-bottom: 48px;
   z-index: 2;
   animation: ink-bleed 3s ease-out forwards;
-  animation-delay: 2s;
+  animation-delay: 0.4s;
+  animation-play-state: paused;
+}
+
+#main-menu.ready .menu-title-area {
+  animation-play-state: running;
 }
 
 .menu-nav {
@@ -119,11 +124,16 @@ body.game-active #app canvas {
   display: flex; flex-direction: column;
   align-items: center; gap: 4px;
   animation: rise-up 2s ease-out both;
-  animation-delay: 5s;
+  animation-delay: 3s;
+  animation-play-state: paused;
+}
+
+#main-menu.ready .menu-nav {
+  animation-play-state: running;
 }
 
 .menu-title {
-  width: 70%;
+  width: 76%;
 }
 
 .btn-hero img {
