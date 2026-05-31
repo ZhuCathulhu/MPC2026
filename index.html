@@ -3,139 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MPC2026</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
-    canvas { display: block; }
-
-    #hint {
-      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.6); color: #aaa;
-      font: 13px/1.5 monospace; padding: 7px 16px; border-radius: 20px;
-      pointer-events: none; text-align: center; white-space: nowrap;
-    }
-
-    #joystick-zone {
-      position: fixed; bottom: 30px; left: 30px;
-      width: 110px; height: 110px;
-      touch-action: none; z-index: 10;
-    }
-
-    #loading {
-      position: fixed; inset: 0; background: #0a0a0a;
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 14px;
-      color: #666; font: 13px/1 monospace;
-      transition: opacity 0.6s; z-index: 100;
-    }
-    #loading.hidden { opacity: 0; pointer-events: none; }
-    #loading-bar-wrap { width: 200px; height: 2px; background: #222; border-radius: 1px; overflow: hidden; }
-    #loading-bar { height: 100%; background: #666; width: 0%; transition: width 0.2s; }
-
-    /* ── Talk button (mobile) ── */
-    #talk-btn {
-      position: fixed; bottom: 40px; right: 30px;
-      width: 64px; height: 64px; border-radius: 50%;
-      border: 2px solid rgba(120,200,160,0.8);
-      background: rgba(0,0,0,0.4);
-      color: rgba(120,200,160,0.9);
-      font: 700 11px/1 Georgia, serif;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      cursor: pointer; display: none; z-index: 20;
-      align-items: center; justify-content: center;
-      touch-action: manipulation;
-    }
-    #talk-btn.visible { display: flex; }
-
-    /* ── Dialogue box ── */
-    #dialogue-box {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      padding: 0 0 env(safe-area-inset-bottom);
-      z-index: 200; display: none;
-      animation: slide-up 0.22s ease;
-    }
-    #dialogue-box.open { display: block; }
-    @keyframes slide-up {
-      from { transform: translateY(16px); opacity: 0; }
-      to   { transform: translateY(0);    opacity: 1; }
-    }
-    #dialogue-inner {
-      margin: 0 auto; max-width: 760px;
-      background: linear-gradient(180deg, rgba(10,8,6,0.94) 0%, rgba(6,5,3,0.98) 100%);
-      border-top: 1px solid rgba(200,184,154,0.3);
-      border-left: 1px solid rgba(200,184,154,0.12);
-      border-right: 1px solid rgba(200,184,154,0.12);
-      border-radius: 12px 12px 0 0;
-      padding: 18px 24px 22px;
-      backdrop-filter: blur(10px);
-    }
-    #dialogue-speaker {
-      font: 600 0.7rem/1 Georgia, serif;
-      letter-spacing: 0.22em; text-transform: uppercase;
-      color: #c8b89a; margin-bottom: 8px; opacity: 0.85;
-    }
-    #dialogue-text {
-      font: 400 1.2rem/1.6 Georgia, serif;
-      color: #e8ddd0; min-height: 2.4em; margin-bottom: 14px;
-    }
-    #dialogue-text.thinking::after {
-      content: ''; display: inline-block;
-      width: 4px; height: 4px; border-radius: 50%;
-      background: #c8b89a; margin-left: 6px;
-      animation: pulse 0.8s ease infinite; vertical-align: middle;
-    }
-    @keyframes pulse {
-      0%,100% { opacity:0.3; transform:scale(0.8); }
-      50%      { opacity:1;   transform:scale(1.2); }
-    }
-    #dialogue-choices {
-      display: flex; flex-direction: column; gap: 5px;
-      border-top: 1px solid rgba(200,184,154,0.1);
-      padding-top: 12px;
-    }
-    .choice-btn {
-      background: none;
-      border: 1px solid rgba(200,184,154,0.16);
-      border-radius: 6px; color: #c8d4b0;
-      font: 400 1rem/1.4 Georgia, serif;
-      padding: 7px 14px; text-align: left;
-      cursor: pointer;
-      transition: background 0.12s, border-color 0.12s, color 0.12s;
-    }
-    .choice-btn::before { content: '›'; margin-right: 9px; color: rgba(200,184,154,0.45); }
-    .choice-btn:hover { background: rgba(200,184,154,0.07); border-color: rgba(200,184,154,0.38); color: #e8ddd0; }
-    .choice-btn[data-id="__end__"] { color: rgba(200,184,154,0.45); border-color: rgba(200,184,154,0.08); }
-    .choice-btn[data-id="__end__"]:hover { color: rgba(200,184,154,0.85); }
-
-    /* Free-text input */
-    #dialogue-free-wrap {
-      display: flex; gap: 8px;
-      margin-top: 10px;
-      border-top: 1px solid rgba(200,184,154,0.08);
-      padding-top: 10px;
-    }
-    #dialogue-free-input {
-      flex: 1;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(200,184,154,0.18);
-      border-radius: 6px; color: #e8ddd0;
-      font: 400 1rem/1 Georgia, serif;
-      padding: 7px 11px; outline: none;
-      transition: border-color 0.14s;
-    }
-    #dialogue-free-input:focus { border-color: rgba(200,184,154,0.48); }
-    #dialogue-free-input::placeholder { color: rgba(200,184,154,0.22); font-style: italic; }
-    #dialogue-free-send {
-      background: rgba(200,184,154,0.09);
-      border: 1px solid rgba(200,184,154,0.22);
-      border-radius: 6px; color: #c8b89a;
-      font: 400 0.88rem/1 Georgia, serif;
-      padding: 7px 13px; cursor: pointer;
-      transition: background 0.12s;
-    }
-    #dialogue-free-send:hover { background: rgba(200,184,154,0.17); }
-  </style>
+  <title>The Last Ship — A World Forgotten</title>
+  <!-- style.css owns the menu, story, loading, fonts, and base reset -->
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -150,53 +20,64 @@
   <!-- ── Main menu ─────────────────────────────────────────── -->
   <main id="main-menu" class="hidden" aria-label="Main menu">
     <canvas id="menu-grain" aria-hidden="true"></canvas>
-
     <header class="menu-title-area">
-
       <img class="menu-title" src="assets/title.png" alt="The Last Ship">
-
       <nav class="menu-nav" aria-label="Game menu">
         <button id="btn-play" class="btn-hero" type="button">
           <img src="assets/btn-start.png" alt="Start Game">
         </button>
       </nav>
     </header>
-
   </main>
 
   <!-- ── Story / context screens ───────────────────────────── -->
   <section id="story-screen" class="hidden" aria-label="Story introduction">
-
     <div class="story-card" aria-live="polite">
       <p id="story-text" class="story-text"></p>
       <nav class="story-nav" aria-label="Story navigation">
         <button id="btn-back" type="button">
           <img src="assets/btn-back.png" alt="Back">
         </button>
-
-          <span id="story-counter" aria-hidden="true"></span>
-
+        <span id="story-counter" aria-hidden="true"></span>
         <button id="btn-next" type="button">
           <img src="assets/btn-next.png" alt="Next">
         </button>
       </nav>
     </div>
-
   </section>
 
   <!-- ── In-game UI ─────────────────────────────────────────── -->
   <p id="hint" role="status" aria-live="polite">
-    WASD to move · Click to look · Shift releases mouse
+    WASD to move · Click to look
   </p>
-  <div id="joystick-zone" aria-hidden="true"></div>
+
+  <!-- Virtual joystick (mobile) -->
+  <div id="joystick-zone" aria-hidden="true">
+    <div id="joystick-knob"></div>
+  </div>
+
+  <button id="talk-btn" type="button">Talk</button>
+
+  <!-- ── Dialogue overlay ───────────────────────────────────── -->
+  <div id="dialogue-box">
+    <div id="dialogue-inner">
+      <div id="dialogue-speaker"></div>
+      <div id="dialogue-text"></div>
+      <div id="dialogue-choices"></div>
+      <div id="dialogue-free-wrap">
+        <input id="dialogue-free-input" type="text"
+               placeholder="Say something else…" maxlength="200" autocomplete="off" />
+        <button id="dialogue-free-send">Ask</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ── Scripts ───────────────────────────────────────────── -->
   <script type="importmap">
   {
     "imports": {
       "three":         "https://unpkg.com/three@0.167.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.167.0/examples/jsm/",
-      "nipplejs":      "https://unpkg.com/nipplejs@0.10.1/dist/nipplejs.mjs"
+      "three/addons/": "https://unpkg.com/three@0.167.0/examples/jsm/"
     }
   }
   </script>
@@ -204,7 +85,6 @@
   <script type="module">
     import * as THREE from 'three'
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-    import nipplejs from 'nipplejs'
 
     // ── Film grain ────────────────────────────────────────────────────────
     const grainCanvas = document.getElementById('menu-grain')
@@ -290,13 +170,12 @@
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // NPC DEFINITIONS  ←  edit your dialogue here
+    // NPC DEFINITIONS
     // ════════════════════════════════════════════════════════════════════
     const NPC_DEFS = [
       {
         id: 'innkeeper',
         name: 'Mira',
-        // personality is sent to the AI when the player types a free-text question
         personality: `You are Mira, a tired but warm innkeeper in a medieval fantasy village.
 You have run the Silver Hare inn for 20 years. You are pragmatic, slightly sarcastic,
 and deeply loyal to regulars. You know local gossip. Speak in short, direct sentences.
@@ -315,40 +194,19 @@ Never break character.`,
             ]
           },
           responses: {
-            hungry_yes: {
-              text: "Stew's two copper. Sit down, I'll bring it over.",
-              choices: [
-                { id: 'pay',     label: 'Here, take it.' },
-                { id: 'broke',   label: "I don't have any coin." },
-                { id: '__end__', label: 'Actually, I need to go.' },
-              ]
-            },
-            hungry_no: {
-              text: "Ha. Town's a mess. Old Rennick's mill burned three nights ago. Nobody knows why.",
-              choices: [
-                { id: 'mill_more', label: 'A mill fire? Was anyone hurt?' },
-                { id: 'rennick',   label: 'Who is Rennick?' },
-                { id: '__end__',   label: 'Interesting. Thanks.' },
-              ]
-            },
-            room: {
-              text: "Eight copper a night. Includes breakfast. I don't run a charity.",
-              choices: [
-                { id: 'take_room',  label: "Deal. I'll take it." },
-                { id: 'negotiate',  label: 'Can you do six?' },
-                { id: '__end__',    label: 'Too rich for me.' },
-              ]
-            },
-            pay:       { text: "Good. Don't spill it on my floor.",          choices: [{ id:'__end__', label:"Wouldn't dream of it." }] },
-            broke:     { text: "Then you're eating air. I'm not a charity.", choices: [{ id:'beg', label:"Please — I haven't eaten in two days." }, { id:'__end__', label:'Fair enough.' }] },
-            beg:       { text: "...Fine. One bowl. You owe me.",              choices: [{ id:'__end__', label:'Thank you. Truly.' }] },
-            mill_more: { text: "Old Harren lost two fingers trying to drag his grandson out. The boy's fine. Harren's not.", choices: [{ id:'cause', label:"What caused it?" }, { id:'__end__', label:'That sounds terrible.' }] },
-            cause:     { text: "That's the question, isn't it. Some say lightning. I say lightning doesn't smell like sulfur.", choices: [{ id:'sulfur', label:'Sulfur? Like brimstone?' }, { id:'__end__', label:"I'll look into it." }] },
-            sulfur:    { text: "Don't go looking into things you can't unlearn. That's my advice.",                            choices: [{ id:'__end__', label:'Noted.' }] },
-            rennick:   { text: "Richest man in three villages. Owns half the farmland. Not well liked, but the mill keeps people fed.", choices: [{ id:'rennick_where', label:'Where does he live?' }, { id:'__end__', label:'I see. Thanks.' }] },
+            hungry_yes: { text: "Stew's two copper. Sit down, I'll bring it over.", choices: [{ id:'pay', label:'Here, take it.' }, { id:'broke', label:"I don't have any coin." }, { id:'__end__', label:'Actually, I need to go.' }] },
+            hungry_no:  { text: "Ha. Town's a mess. Old Rennick's mill burned three nights ago. Nobody knows why.", choices: [{ id:'mill_more', label:'A mill fire? Was anyone hurt?' }, { id:'rennick', label:'Who is Rennick?' }, { id:'__end__', label:'Interesting. Thanks.' }] },
+            room:       { text: "Eight copper a night. Includes breakfast. I don't run a charity.", choices: [{ id:'take_room', label:"Deal. I'll take it." }, { id:'negotiate', label:'Can you do six?' }, { id:'__end__', label:'Too rich for me.' }] },
+            pay:        { text: "Good. Don't spill it on my floor.", choices: [{ id:'__end__', label:"Wouldn't dream of it." }] },
+            broke:      { text: "Then you're eating air. I'm not a charity.", choices: [{ id:'beg', label:"Please — I haven't eaten in two days." }, { id:'__end__', label:'Fair enough.' }] },
+            beg:        { text: "...Fine. One bowl. You owe me.", choices: [{ id:'__end__', label:'Thank you. Truly.' }] },
+            mill_more:  { text: "Old Harren lost two fingers trying to drag his grandson out. The boy's fine. Harren's not.", choices: [{ id:'cause', label:"What caused it?" }, { id:'__end__', label:'That sounds terrible.' }] },
+            cause:      { text: "That's the question, isn't it. Some say lightning. I say lightning doesn't smell like sulfur.", choices: [{ id:'sulfur', label:'Sulfur? Like brimstone?' }, { id:'__end__', label:"I'll look into it." }] },
+            sulfur:     { text: "Don't go looking into things you can't unlearn. That's my advice.", choices: [{ id:'__end__', label:'Noted.' }] },
+            rennick:    { text: "Richest man in three villages. Owns half the farmland. Not well liked, but the mill keeps people fed.", choices: [{ id:'rennick_where', label:'Where does he live?' }, { id:'__end__', label:'I see. Thanks.' }] },
             rennick_where: { text: "Manor up the north road. Big iron gate. You can't miss it — or the guards.", choices: [{ id:'__end__', label:"I'll keep that in mind." }] },
-            take_room: { text: "Room three, top of the stairs. Key's on the hook. Breakfast at dawn.", choices: [{ id:'__end__', label:'Thank you, Mira.' }] },
-            negotiate: { text: "Seven, and that's my final word.", choices: [{ id:'take_room', label:"Alright. Seven it is." }, { id:'__end__', label:"No deal." }] },
+            take_room:  { text: "Room three, top of the stairs. Key's on the hook. Breakfast at dawn.", choices: [{ id:'__end__', label:'Thank you, Mira.' }] },
+            negotiate:  { text: "Seven, and that's my final word.", choices: [{ id:'take_room', label:"Alright. Seven it is." }, { id:'__end__', label:"No deal." }] },
           }
         }
       },
@@ -372,39 +230,37 @@ Never break character.`,
             ]
           },
           responses: {
-            sharpen:  { text: "Let me see it. ...This is fine steel. Where'd you get it?",        choices: [{ id:'found_it', label:'Found it.' }, { id:'bought', label:'Bought it years ago.' }, { id:'__end__', label:"That's my business." }] },
+            sharpen:  { text: "Let me see it. ...This is fine steel. Where'd you get it?", choices: [{ id:'found_it', label:'Found it.' }, { id:'bought', label:'Bought it years ago.' }, { id:'__end__', label:"That's my business." }] },
             master:   { text: "He left two days ago. Said he had business in Thornwall. Hasn't come back.", choices: [{ id:'worried', label:"You seem worried." }, { id:'__end__', label:'I see. Good luck.' }] },
-            worried:  { text: "He's always back by nightfall. Two days is... not normal for him.",  choices: [{ id:'__end__', label:"I'll keep an eye out." }] },
-            found_it: { text: "Huh. In a grave, or a fight?",                                      choices: [{ id:'grave', label:'An old ruin, actually.' }, { id:'__end__', label:"Does it matter?" }] },
+            worried:  { text: "He's always back by nightfall. Two days is... not normal for him.", choices: [{ id:'__end__', label:"I'll keep an eye out." }] },
+            found_it: { text: "Huh. In a grave, or a fight?", choices: [{ id:'grave', label:'An old ruin, actually.' }, { id:'__end__', label:"Does it matter?" }] },
             grave:    { text: "Old ruins have good steel sometimes. Pre-war forging. They don't make them like that anymore.", choices: [{ id:'__end__', label:'Interesting.' }] },
-            bought:   { text: "Good craft. Whoever made it knew what they were doing.",             choices: [{ id:'__end__', label:'Thanks.' }] },
+            bought:   { text: "Good craft. Whoever made it knew what they were doing.", choices: [{ id:'__end__', label:'Thanks.' }] },
           }
         }
       }
     ]
-    // ════════════════════════════════════════════════════════════════════
 
     // ── Dialogue state ────────────────────────────────────────────────────
-    let dialogueOpen  = false
-    let activeNPC     = null
+    let dialogueOpen    = false
+    let activeNPC       = null
     let typewriterTimer = null
+    let gameRunning     = false
 
-    const dlgBox      = document.getElementById('dialogue-box')
-    const dlgSpeaker  = document.getElementById('dialogue-speaker')
-    const dlgText     = document.getElementById('dialogue-text')
-    const dlgChoices  = document.getElementById('dialogue-choices')
-    const dlgFreeWrap = document.getElementById('dialogue-free-wrap')
-    const dlgFreeInput= document.getElementById('dialogue-free-input')
-    const dlgFreeSend = document.getElementById('dialogue-free-send')
-    const talkBtn     = document.getElementById('talk-btn')
+    const dlgBox       = document.getElementById('dialogue-box')
+    const dlgSpeaker   = document.getElementById('dialogue-speaker')
+    const dlgText      = document.getElementById('dialogue-text')
+    const dlgChoices   = document.getElementById('dialogue-choices')
+    const dlgFreeWrap  = document.getElementById('dialogue-free-wrap')
+    const dlgFreeInput = document.getElementById('dialogue-free-input')
+    const dlgFreeSend  = document.getElementById('dialogue-free-send')
+    const talkBtn      = document.getElementById('talk-btn')
 
     function showLine(speaker, text, choices) {
       dlgSpeaker.textContent = speaker
       dlgText.classList.remove('thinking')
       dlgChoices.innerHTML = ''
       dlgFreeWrap.style.display = 'none'
-
-      // Typewriter
       if (typewriterTimer) clearInterval(typewriterTimer)
       dlgText.textContent = ''
       let i = 0
@@ -422,8 +278,8 @@ Never break character.`,
       dlgChoices.innerHTML = ''
       for (const c of (choices ?? [])) {
         const btn = document.createElement('button')
-        btn.className  = 'choice-btn'
-        btn.dataset.id = c.id
+        btn.className   = 'choice-btn'
+        btn.dataset.id  = c.id
         btn.textContent = c.label
         btn.addEventListener('click', () => handleChoice(c.id))
         dlgChoices.appendChild(btn)
@@ -446,19 +302,24 @@ Never break character.`,
       dlgText.classList.add('thinking')
       dlgChoices.innerHTML = ''
       dlgFreeWrap.style.display = 'none'
-
       try {
         const res = await fetch('/api/dialogue/ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             npcId:       activeNPC.id,
+            npcName:     activeNPC.name,
             personality: activeNPC.personality,
             playerText,
+            currentChoices: Object.keys(activeNPC.script?.responses ?? {}).map(id => ({ id })),
           })
         })
         if (!res.ok) throw new Error('bad response')
-        const { text, choices } = await res.json()
+        const { matchedId, text, choices } = await res.json()
+        if (matchedId) {
+          const scripted = activeNPC.script?.responses?.[matchedId]
+          if (scripted) { showLine(activeNPC.name, scripted.text, scripted.choices); return }
+        }
         showLine(activeNPC.name, text, choices)
       } catch {
         showLine(activeNPC.name, '...', [{ id: '__end__', label: 'Leave.' }])
@@ -466,22 +327,25 @@ Never break character.`,
     }
 
     function openDialogue(npcDef) {
-      activeNPC = npcDef
+      activeNPC    = npcDef
       dialogueOpen = true
       document.exitPointerLock?.()
       dlgBox.classList.add('open')
       talkBtn.classList.remove('visible')
+      joystickZone.classList.remove('visible')
+      resetKnob()
       const opening = npcDef.script?.opening ?? { text: 'Hello.', choices: [{ id:'__end__', label:'Goodbye.' }] }
       showLine(npcDef.name, opening.text, opening.choices)
     }
 
     function closeDialogue() {
       dialogueOpen = false
-      activeNPC = null
+      activeNPC    = null
       if (typewriterTimer) { clearInterval(typewriterTimer); typewriterTimer = null }
       dlgBox.classList.remove('open')
       dlgChoices.innerHTML = ''
-      dlgText.textContent = ''
+      dlgText.textContent  = ''
+      joystickZone.classList.add('visible')
     }
 
     // Free-text send
@@ -492,10 +356,14 @@ Never break character.`,
       askAI(t)
     }
     dlgFreeSend.addEventListener('click', sendFree)
-    dlgFreeInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendFree() })
+    dlgFreeInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') sendFree()
+      e.stopPropagation()   // don't fire game keys while typing
+    })
+    dlgFreeInput.addEventListener('keyup',   e => e.stopPropagation())
 
     // ── Spawn NPCs ────────────────────────────────────────────────────────
-    const npcs = []   // { root, mixer, def, promptSprite }
+    const npcs = []
 
     function buildPlaceholderNPC(color) {
       const g = new THREE.Group()
@@ -525,22 +393,22 @@ Never break character.`,
       return sprite
     }
 
+    const gltfLoader = new GLTFLoader()
+    let spinTarget = null
+
     for (const def of NPC_DEFS) {
       const root = new THREE.Group()
       root.position.copy(def.spawnPosition)
       scene.add(root)
-
       const prompt = buildPromptSprite(def.name)
       root.add(prompt)
-
       const entry = { root, mixer: null, def, prompt }
       npcs.push(entry)
-
       gltfLoader.load(
         def.modelPath,
         (gltf) => {
           const model = gltf.scene
-          model.position.set(0, 0, 0); model.rotation.set(0, 0, 0); model.scale.set(1, 1, 1)
+          model.position.set(0,0,0); model.rotation.set(0,0,0); model.scale.set(1,1,1)
           model.traverse(obj => {
             if (!obj.isMesh) return
             const s = obj.scale
@@ -565,11 +433,11 @@ Never break character.`,
     }
 
     // ── World loading ─────────────────────────────────────────────────────
-    function dismissLoading() {
+    function dismissLoading(cb) {
       const el = document.getElementById('loading')
-      if (!el) { cb && cb(); return }
+      if (!el) { cb?.(); return }
       el.classList.add('hidden')
-      setTimeout(() => { el.remove(); cb && cb() }, 700)
+      setTimeout(() => { el.remove(); cb?.() }, 700)
     }
 
     function showMenu() {
@@ -578,8 +446,8 @@ Never break character.`,
 
     // ── Story slides ──────────────────────────────────────────────────────
     const storySlides = [
-      "It’s the roaring 1950s in the island of Diécada. The European Democratic Kingdom is cracking down on their exports: sugar, bananas, slave labour, cocaine. Produce rots in sheds. Resentment boils in empty pots and empty stomachs.",
-      "You are the last remaining EDK diplomat still operating. \n\nYou’re hiding out in Diécada and you’re not going back.",
+      "It's the roaring 1950s in the island of Diécada. The European Democratic Kingdom is cracking down on their exports: sugar, bananas, slave labour, cocaine. Produce rots in sheds. Resentment boils in empty pots and empty stomachs.",
+      "You are the last remaining EDK diplomat still operating. \n\nYou're hiding out in Diécada and you're not going back.",
       "Things are primed to reach an explosive point on August 30th, when the ships from the capital come in for their last harvest of blood fruit. \n\nThere are 3 days remaining.",
     ]
 
@@ -589,15 +457,11 @@ Never break character.`,
       const text    = document.getElementById('story-text')
       const counter = document.getElementById('story-counter')
       const btnBack = document.getElementById('btn-back')
-      const btnNext = document.getElementById('btn-next')
-
       text.classList.remove('visible')
       setTimeout(() => {
         text.innerText = storySlides[currentSlide]
         counter.textContent = `${currentSlide + 1} / ${storySlides.length}`
         btnBack.disabled = currentSlide === 0
-        const isLast = currentSlide === storySlides.length - 1
-  
         text.classList.add('visible')
       }, 600)
     }
@@ -606,7 +470,7 @@ Never break character.`,
       document.getElementById('main-menu').classList.add('hidden')
       const screen = document.getElementById('story-screen')
       screen.classList.remove('hidden')
-      screen.classList.add('animate')    // ← triggers animations now that it's visible
+      screen.classList.add('animate')
       renderSlide()
     }
 
@@ -616,7 +480,7 @@ Never break character.`,
         document.getElementById('story-screen').remove()
         document.body.classList.add('game-active')
         document.getElementById('hint').style.display = 'block'
-        document.getElementById('joystick-zone').style.display = 'block'
+        showJoystick()
         gameRunning = true
       }, 600)
     }
@@ -628,17 +492,13 @@ Never break character.`,
     })
     document.getElementById('btn-next').addEventListener('click', () => {
       if (currentSlide < storySlides.length - 1) {
-        currentSlide++
-        renderSlide()
+        currentSlide++; renderSlide()
       } else {
         enterGame()
       }
     })
 
     // ── GLB load ──────────────────────────────────────────────────────────
-    const gltfLoader = new GLTFLoader()
-    let spinTarget = null
-
     gltfLoader.load(
       '/assets/world.glb',
       (gltf) => {
@@ -664,11 +524,10 @@ Never break character.`,
         const cube = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), new THREE.MeshLambertMaterial({ color: 0xe05050 }))
         cube.position.set(0, 0.75, -8); cube.castShadow = true
         scene.add(cube); worldMeshes.push(cube); spinTarget = cube
-        dismissLoading()
+        dismissLoading(showMenu)
       }
     )
 
-    // ── Pointer lock ──────────────────────────────────────────────────────
     // ── Pointer lock ──────────────────────────────────────────────────────
     let mouseLocked = false
     renderer.domElement.addEventListener('click', () => {
@@ -686,7 +545,6 @@ Never break character.`,
     addEventListener('keydown', e => {
       if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && mouseLocked) document.exitPointerLock()
       if (e.code === 'KeyE' && !dialogueOpen) {
-        // find nearest NPC in range and open dialogue
         for (const npc of npcs) {
           if (npc.prompt.visible) { openDialogue(npc.def); break }
         }
@@ -696,6 +554,91 @@ Never break character.`,
     })
     addEventListener('keyup', e => { keys[e.code] = false })
 
+    // ── Virtual joystick (mobile) ─────────────────────────────────────────
+    const joystickZone = document.getElementById('joystick-zone')
+    const joystickKnob = document.getElementById('joystick-knob')
+    const JOY_RADIUS   = 36   // max knob travel in px
+    let   joyActive    = false
+    let   joyId        = null
+    let   joyOriginX   = 0, joyOriginY = 0
+    let   joyDx        = 0, joyDy      = 0   // normalised −1..1
+
+    function showJoystick() {
+      joystickZone.classList.add('visible')
+    }
+
+    function getZoneCenter() {
+      const rect = joystickZone.getBoundingClientRect()
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+    }
+
+    // Touch events
+    joystickZone.addEventListener('touchstart', e => {
+      e.preventDefault()
+      if (joyActive) return
+      const t    = e.changedTouches[0]
+      joyActive  = true
+      joyId      = t.identifier
+      const c    = getZoneCenter()
+      joyOriginX = c.x; joyOriginY = c.y
+      updateKnob(t.clientX, t.clientY)
+    }, { passive: false })
+
+    joystickZone.addEventListener('touchmove', e => {
+      e.preventDefault()
+      for (const t of e.changedTouches) {
+        if (t.identifier === joyId) { updateKnob(t.clientX, t.clientY); break }
+      }
+    }, { passive: false })
+
+    joystickZone.addEventListener('touchend', e => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === joyId) { resetKnob(); break }
+      }
+    })
+    joystickZone.addEventListener('touchcancel', resetKnob)
+
+    // Mouse events (desktop)
+    joystickZone.addEventListener('mousedown', e => {
+      e.preventDefault()
+      e.stopPropagation()   // prevent canvas pointer-lock from firing
+      joyActive  = true
+      const c    = getZoneCenter()
+      joyOriginX = c.x; joyOriginY = c.y
+      updateKnob(e.clientX, e.clientY)
+      window.addEventListener('mousemove', onJoyMouseMove)
+      window.addEventListener('mouseup',   onJoyMouseUp)
+    })
+
+    function onJoyMouseMove(e) {
+      if (!joyActive) return
+      updateKnob(e.clientX, e.clientY)
+    }
+
+    function onJoyMouseUp() {
+      resetKnob()
+      window.removeEventListener('mousemove', onJoyMouseMove)
+      window.removeEventListener('mouseup',   onJoyMouseUp)
+    }
+
+    function updateKnob(cx, cy) {
+      let dx = cx - joyOriginX
+      let dy = cy - joyOriginY
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      if (dist > JOY_RADIUS) { dx = dx / dist * JOY_RADIUS; dy = dy / dist * JOY_RADIUS }
+      joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`
+      joyDx = dx / JOY_RADIUS
+      joyDy = dy / JOY_RADIUS
+    }
+
+    function resetKnob() {
+      joyActive = false
+      joyId     = null
+      joyDx     = 0
+      joyDy     = 0
+      joystickKnob.style.transform = 'translate(0px, 0px)'
+    }
+
     // ── Talk button (mobile) ──────────────────────────────────────────────
     talkBtn.addEventListener('click', () => {
       for (const npc of npcs) {
@@ -703,28 +646,18 @@ Never break character.`,
       }
     })
 
-    // ── Joystick ──────────────────────────────────────────────────────────
-    let joyX = 0, joyZ = 0
-    const manager = nipplejs.create({
-      zone: document.getElementById('joystick-zone'),
-      mode: 'static', position: { left: '50%', top: '50%' },
-      color: 'rgba(180,40,20,0.4)', size: 100,
-    })
-    manager.on('move', (_, d) => { joyX = d.vector?.x ?? 0; joyZ = -(d.vector?.y ?? 0) })
-    manager.on('end',  ()     => { joyX = 0; joyZ = 0 })
-
     // ── Game loop ─────────────────────────────────────────────────────────
     const clock = new THREE.Clock()
     const SPEED = 5
     const INTERACT_DIST = 3.0
+    let yaw = 0, pitch = 0
 
     renderer.setAnimationLoop(() => {
       const dt = Math.min(clock.getDelta(), 0.1)
-
       if (spinTarget) spinTarget.rotation.y += dt * 0.8
       if (!gameRunning) { renderer.render(scene, camera); return }
 
-      // NPC: face player, tick animations, show/hide prompt
+      // NPC proximity
       let anyNearby = false
       for (const npc of npcs) {
         const dir = player.position.clone().sub(npc.root.position)
@@ -732,36 +665,31 @@ Never break character.`,
         if (dir.lengthSq() > 0.01)
           npc.root.rotation.y += (Math.atan2(dir.x, dir.z) - npc.root.rotation.y) * 0.05
         if (npc.mixer) npc.mixer.update(dt)
-
         const dist = player.position.distanceTo(npc.root.position)
         const nearby = dist < INTERACT_DIST && !dialogueOpen
         npc.prompt.visible = nearby
         if (nearby) anyNearby = true
       }
-      // Show mobile talk button only when an NPC is nearby and no dialogue open
       talkBtn.classList.toggle('visible', anyNearby && !dialogueOpen)
 
-      // Skip movement while dialogue is open
-      if (dialogueOpen) {
-        renderer.render(scene, camera)
-        return
-      }
+      if (dialogueOpen) { renderer.render(scene, camera); return }
 
-      // Movement
-      let mx = joyX, mz = joyZ
+      // Movement (keyboard + joystick)
+      let mx = 0, mz = 0
       if (keys['KeyW']  || keys['ArrowUp'])    mz -= 1
       if (keys['KeyS']  || keys['ArrowDown'])  mz += 1
       if (keys['KeyA']  || keys['ArrowLeft'])  mx -= 1
       if (keys['KeyD']  || keys['ArrowRight']) mx += 1
+      // Virtual joystick overrides keyboard when active
+      if (joyActive) { mx = joyDx; mz = joyDy }
       const len = Math.sqrt(mx * mx + mz * mz)
       if (len > 1) { mx /= len; mz /= len }
 
       const fwd   = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw))
       const right = new THREE.Vector3( Math.cos(yaw), 0, -Math.sin(yaw))
 
-      // ── Wall + NPC collision ───────────────────────────────────────────
       const PLAYER_RADIUS = 0.5
-      const wallRay = new THREE.Raycaster()
+      const wallRay  = new THREE.Raycaster()
       const chestPos = player.position.clone().add(new THREE.Vector3(0, 1, 0))
       const collidables = [...worldMeshes]
       for (const npc of npcs) npc.root.traverse(o => { if (o.isMesh) collidables.push(o) })
@@ -786,9 +714,6 @@ Never break character.`,
         player.rotation.y += (angle - player.rotation.y) * 0.2
       }
 
-      // ── Mouse look ─────────────────────────────────────────────────────
-      // (mousemove handler below updates yaw/pitch)
-
       // Camera
       const camDist = 5, camH = 2.5
       const offset = new THREE.Vector3(
@@ -799,12 +724,10 @@ Never break character.`,
       const lookAt = player.position.clone().add(new THREE.Vector3(0, 1, 0))
       camera.position.lerp(lookAt.clone().add(offset), 0.15)
       camera.lookAt(lookAt)
-
       renderer.render(scene, camera)
     })
 
     // ── Mouse look ────────────────────────────────────────────────────────
-    let yaw = 0, pitch = 0
     addEventListener('mousemove', e => {
       if (!mouseLocked) return
       yaw   -= e.movementX * 0.002
