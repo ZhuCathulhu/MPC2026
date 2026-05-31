@@ -11,16 +11,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "three": "^0.167.0",
-    "three-mesh-bvh": "^0.7.8",
-    "nipplejs": "^0.10.1",
-    "express": "^4.19.2",
-    "mongoose": "^8.5.0",
-    "dotenv": "^16.4.5",
-    "cors": "^2.8.5",
     "@google/generative-ai": "^0.15.0",
+    "concurrently": "^8.2.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "groq-sdk": "^1.2.1",
+    "mongoose": "^8.5.0",
+    "nipplejs": "^0.10.1",
     "node-fetch": "^3.3.2",
-    "concurrently": "^8.2.2"
+    "three": "^0.167.0",
+    "three-mesh-bvh": "^0.7.8"
   },
   "devDependencies": {
     "vite": "^5.3.4"
