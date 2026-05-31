@@ -101,13 +101,19 @@ export class Engine {
   }
 
   _setupLights() {
-    this.scene.add(new THREE.AmbientLight(0x331108, 1.0))
-    const key = new THREE.DirectionalLight(0xff4422, 1.8)
+    /*this.scene.add(new THREE.AmbientLight(0x331108, 1.0))
+    const key = new THREE.DirectionalLight(0xff4422, 1.8)*/
+    this.scene.add(new THREE.AmbientLight(0x998877, 0.6))          // warm but not bleeding red
+    const key = new THREE.DirectionalLight(0xffd4aa, 1.2)          // golden rather than fire-red
+
     key.position.set(-8, 16, 6)
     key.castShadow = true
     key.shadow.mapSize.setScalar(1024)
     this.scene.add(key)
-    const rim = new THREE.DirectionalLight(0x220000, 0.6)
+
+    //const rim = new THREE.DirectionalLight(0x220000, 0.6)
+    const rim = new THREE.DirectionalLight(0x446688, 0.4)          // cool blue-grey rim
+    
     rim.position.set(10, 4, -8)
     this.scene.add(rim)
   }
@@ -350,7 +356,7 @@ export class Engine {
     document.addEventListener('pointerlockchange', () => {
       const locked = document.pointerLockElement === this.renderer.domElement
       document.getElementById('hint').textContent = locked
-        ? 'WASD to move · Esc to release mouse'
+        ? 'WASD to move · Shift to release mouse'
         : 'WASD to move · Click canvas to look'
     })
   }

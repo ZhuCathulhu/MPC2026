@@ -56,7 +56,7 @@ RULES:
   messages.push({ role: 'user', parts: [{ text: playerText }] })
 
   try {
-    const model  = genAI.getGenerativeModel({ model: 'gemini-1.5-flash', systemInstruction: systemPrompt })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', systemInstruction: systemPrompt })
     const chat   = model.startChat({ history: messages.slice(0, -1) })
     const result = await chat.sendMessage(playerText)
     const raw    = result.response.text()

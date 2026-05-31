@@ -50,7 +50,7 @@ export class NPC {
     this.history = []
 
     this.mesh = new THREE.Group()
-    this.mesh.position.copy(new THREE.Vector3(...(data.spawnPosition ?? [0, 0, -5])))
+    this.mesh.position.copy(new THREE.Vector3(...(data.spawnPosition ?? [0, 1, -5])))
     this.scene.add(this.mesh)
 
     this._loadModel()
