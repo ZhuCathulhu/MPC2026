@@ -1,5 +1,6 @@
-import * as THREE from 'three'
+/*import * as THREE from 'three'
 import { MeshBVHHelper, computeBoundsTree } from 'three-mesh-bvh'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 
 // Gravity & movement constants
 const GRAVITY        = -25
@@ -44,13 +45,31 @@ export class CharacterController {
   }
 
   _buildMesh() {
-    // Simple visible capsule so you can see yourself in debug mirrors
     const geo = new THREE.CapsuleGeometry(CAPSULE_RADIUS, CAPSULE_HEIGHT - CAPSULE_RADIUS * 2, 4, 8)
-    const mat = new THREE.MeshLambertMaterial({ color: 0xe8d5b0, wireframe: false })
+    const mat = new THREE.MeshLambertMaterial({ color: 0xe8d5b0 })
     this.mesh = new THREE.Mesh(geo, mat)
-    this.mesh.castShadow = true
-    this.mesh.visible = false   // first-person — hide self; set true for third-person debug
+    this.mesh.visible = false
     this.scene.add(this.mesh)
+
+    this._modelGroup = new THREE.Group()
+    this.scene.add(this._modelGroup)
+
+    new GLTFLoader().load('/assets/base.glb', (gltf) => {
+      const model = gltf.scene
+      this._modelGroup.add(model)
+      this._modelGroup.updateMatrixWorld(true)
+      const box = new THREE.Box3().setFromObject(this._modelGroup)
+      const size = new THREE.Vector3()
+      box.getSize(size)
+      if (size.y > 0.01) {
+        model.scale.setScalar(CAPSULE_HEIGHT / size.y)
+        this._modelGroup.updateMatrixWorld(true)
+        const box2 = new THREE.Box3().setFromObject(this._modelGroup)
+        model.position.y -= box2.min.y
+      }
+      model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
+      console.log('[Character] base.glb loaded OK')
+    })
   }
 
   _setupPointerLock() {
@@ -75,6 +94,10 @@ export class CharacterController {
     this._resolveCollisions()
     this._updateCamera()
     this.mesh.position.copy(this.position)
+    if (this._modelGroup) {
+      this._modelGroup.position.copy(this.position)
+      this._modelGroup.rotation.y = this.yaw + Math.PI
+    }
   }
 
   _applyGravity(delta) {
@@ -186,4 +209,4 @@ export class CharacterController {
   getPosition() {
     return this.position.clone()
   }
-}
+}*/

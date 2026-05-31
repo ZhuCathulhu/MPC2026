@@ -136,23 +136,40 @@
     rimLight.position.set(10, 4, -8)
     scene.add(rimLight)
 
+    // ── Loaders ───────────────────────────────────────────────────────────
+    const gltfLoader = new GLTFLoader()
+
     // ── Player ────────────────────────────────────────────────────────────
     const player = new THREE.Group()
-    const body = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.3, 0.8, 4, 8),
-      new THREE.MeshLambertMaterial({ color: 0x1a0a06 })
-    )
-    body.position.y = 0.7
-    body.castShadow = true
-    player.add(body)
-    const eye = new THREE.Mesh(
-      new THREE.SphereGeometry(0.08, 6, 6),
-      new THREE.MeshBasicMaterial({ color: 0xcc2200 })
-    )
-    eye.position.set(0, 1.1, -0.28)
-    player.add(eye)
     player.position.set(0, 0, 4)
     scene.add(player)
+
+    gltfLoader.load('/assets/base.glb', (gltf) => {
+      const model = gltf.scene
+      player.add(model)
+      player.updateMatrixWorld(true)
+      const box = new THREE.Box3().setFromObject(player)
+      const size = new THREE.Vector3()
+      box.getSize(size)
+      if (size.y > 0.01) {
+        model.scale.setScalar(1.6 / size.y)
+        player.updateMatrixWorld(true)
+        const box2 = new THREE.Box3().setFromObject(player)
+        model.position.y -= box2.min.y
+      }
+      model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
+      console.log('[Player] base.glb loaded OK')
+    }, undefined, (err) => {
+      console.error('[Player] base.glb failed:', err)
+      // fallback pill
+      const body = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.3, 0.8, 4, 8),
+        new THREE.MeshLambertMaterial({ color: 0x1a0a06 })
+      )
+      body.position.y = 0.7
+      body.castShadow = true
+      player.add(body)
+    })
 
     // ── Floor raycaster ───────────────────────────────────────────────────
     const floorRay = new THREE.Raycaster()
@@ -180,8 +197,8 @@
 You have run the Silver Hare inn for 20 years. You are pragmatic, slightly sarcastic,
 and deeply loyal to regulars. You know local gossip. Speak in short, direct sentences.
 Never break character.`,
-        modelPath: '/assets/innkeeper.glb',
-        spawnPosition: new THREE.Vector3(2, -2, -6),
+        modelPath: '/assets/base.glb',
+        spawnPosition: new THREE.Vector3(2, 0, -6),
         color: 0x8B6F47,
         script: {
           opening: {
@@ -217,7 +234,7 @@ Never break character.`,
 You are proud of your work but insecure about your skills vs your master.
 You love talking about metallurgy and weapons. Speak with enthusiasm.
 Never break character.`,
-        modelPath: '/assets/gareth.glb',
+        modelPath: '/assets/base.glb',
         spawnPosition: new THREE.Vector3(-6, 0, -8),
         color: 0x4a5a6a,
         script: {
@@ -393,7 +410,6 @@ Never break character.`,
       return sprite
     }
 
-    const gltfLoader = new GLTFLoader()
     let spinTarget = null
 
     for (const def of NPC_DEFS) {

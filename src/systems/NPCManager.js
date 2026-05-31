@@ -83,26 +83,6 @@ export class NPC {
         model.traverse(obj => {
           if (!obj.isMesh) return
           meshCount++
-
-          // Fix non-uniform scale
-          const s = obj.scale
-          if (Math.abs(s.x - s.y) > 0.01 || Math.abs(s.y - s.z) > 0.01) {
-            const uniform = Math.max(s.x, s.y, s.z)
-            console.log(`[NPC:${this.data.name}] fixing scale [${s.x},${s.y},${s.z}] → ${uniform}`)
-            obj.scale.setScalar(uniform)
-          }
-
-          // Floor the mesh so its bottom sits at Y=0
-          obj.geometry.computeBoundingBox()
-          const box = obj.geometry.boundingBox
-          console.log(`[NPC:${this.data.name}] "${obj.name}" bbox Y: ${box.min.y.toFixed(3)} → ${box.max.y.toFixed(3)}, node Y: ${obj.position.y.toFixed(3)}`)
-
-          const bottomY = (box.min.y * obj.scale.y) + obj.position.y
-          if (Math.abs(bottomY) > 0.05) {
-            console.log(`[NPC:${this.data.name}] flooring: shifting Y by ${(-bottomY).toFixed(3)}`)
-            obj.position.y -= bottomY
-          }
-
           obj.castShadow    = true
           obj.receiveShadow = true
 
@@ -110,15 +90,21 @@ export class NPC {
           if (!obj.material || (Array.isArray(obj.material) && obj.material.length === 0)) {
             console.log(`[NPC:${this.data.name}] no material — applying fallback`)
             obj.material = new THREE.MeshLambertMaterial({ color: this.data.color ?? 0xa0785a })
-          } else {
-            console.log(`[NPC:${this.data.name}] has material: ${obj.material.type}`)
           }
         })
 
-        console.log(`[NPC:${this.data.name}] mesh nodes found: ${meshCount}`)
+        // Add the model first so world transforms are computed correctly,
+        // then floor the whole model by its world-space bounding box minimum.
         this.mesh.add(model)
         this._model = model
 
+        const box = new THREE.Box3().setFromObject(model)
+        if (box.min.y < -0.05 || box.min.y > 0.05) {
+          console.log(`[NPC:${this.data.name}] flooring model: bbox minY=${box.min.y.toFixed(3)}, shifting by ${(-box.min.y).toFixed(3)}`)
+          model.position.y -= box.min.y
+        }
+
+        console.log(`[NPC:${this.data.name}] mesh nodes found: ${meshCount}`)
         const wp = new THREE.Vector3()
         this.mesh.getWorldPosition(wp)
         console.log(`[NPC:${this.data.name}] final world pos: ${wp.x.toFixed(2)}, ${wp.y.toFixed(2)}, ${wp.z.toFixed(2)}`)
