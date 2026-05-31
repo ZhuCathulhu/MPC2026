@@ -488,3 +488,20 @@ button {
   0%, 100% { opacity: 0.5; }
   50%       { opacity: 1; }
 }
+
+
+#day-counter {
+  position: fixed;
+  top: 70px; right: 24px;
+  z-index: 100;
+  font-size: 0.7rem;
+  font-family: 'Montaga', serif;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: #F14035;
+  background: rgba(48,5,2,0.3);
+  /* border: 2px solid rgba(241,64,53,0.3); */
+  padding: 8px 14px;
+  display: none;
+}
+
+#day-counter.visible { display: block; }
