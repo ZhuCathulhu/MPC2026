@@ -1,3 +1,8 @@
+/**
+ * server/db.js
+ *
+ * MongoDB models. Added `inventory` field to PlayerSave.
+ */
 import mongoose from 'mongoose'
 
 export async function connectDB() {
@@ -14,32 +19,38 @@ export async function connectDB() {
   }
 }
 
-// ── Voice cache ───────────────────────────────────────────────────────────────
-// Stores generated ElevenLabs audio so we never pay to generate the same line twice.
+// ── Voice cache ────────────────────────────────────────────────────────────────
 const voiceCacheSchema = new mongoose.Schema({
-  hash:      { type: String, unique: true, index: true }, // MD5 of text+voiceId
+  hash:      { type: String, unique: true, index: true },
   voiceId:   String,
-  textSnip:  String,   // first 80 chars for debugging
-  audio:     Buffer,   // raw mp3 bytes
+  textSnip:  String,
+  audio:     Buffer,
   createdAt: { type: Date, default: Date.now },
 })
 export const VoiceCache = mongoose.model('VoiceCache', voiceCacheSchema)
 
-// ── Player save state ─────────────────────────────────────────────────────────
+// ── Player save ────────────────────────────────────────────────────────────────
+//
+// inventory: { item_id: quantity }
+//   e.g. { copper_coin: 3, mill_key: 1 }
+//
+// flags: arbitrary key/value quest state
+//   e.g. { has_room: true, mira_knows_sulfur: true, item_collected_mill_sulfur_01: true }
+//
 const saveSchema = new mongoose.Schema({
   playerId:  { type: String, unique: true, index: true },
   position:  { x: Number, y: Number, z: Number },
-  flags:     mongoose.Schema.Types.Mixed,   // arbitrary quest flags
+  inventory: { type: mongoose.Schema.Types.Mixed, default: {} },
+  flags:     { type: mongoose.Schema.Types.Mixed, default: {} },
   updatedAt: { type: Date, default: Date.now },
 })
 export const PlayerSave = mongoose.model('PlayerSave', saveSchema)
 
-// ── NPC conversation memory ───────────────────────────────────────────────────
-// Lets Gemini remember what was said across sessions.
+// ── NPC conversation memory ────────────────────────────────────────────────────
 const npcMemorySchema = new mongoose.Schema({
   playerId:  String,
   npcId:     String,
-  history:   [{ role: String, text: String }],  // last N turns
+  history:   [{ role: String, text: String }],
   updatedAt: { type: Date, default: Date.now },
 })
 npcMemorySchema.index({ playerId: 1, npcId: 1 }, { unique: true })

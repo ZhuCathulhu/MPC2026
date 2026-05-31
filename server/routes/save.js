@@ -1,30 +1,47 @@
-import { Router } from 'express'
+/**
+ * server/routes/save.js
+ *
+ * GET  /api/save/:playerId  → returns { inventory, flags, position }
+ * POST /api/save/:playerId  → body { inventory, flags, position? }
+ */
+import { Router }     from 'express'
 import { PlayerSave } from '../db.js'
 
 const router = Router()
 
-// GET /api/save/:playerId
+// ── GET ────────────────────────────────────────────────────────────────────────
 router.get('/:playerId', async (req, res) => {
   try {
     const save = await PlayerSave.findOne({ playerId: req.params.playerId })
-    if (!save) return res.json(null)
-    res.json({ position: save.position, flags: save.flags })
+    if (!save) return res.json(null)   // new player — client starts fresh
+    res.json({
+      position:  save.position  ?? { x: 0, y: 2, z: 0 },
+      inventory: save.inventory ?? {},
+      flags:     save.flags     ?? {},
+    })
   } catch (err) {
+    console.error('[Save] GET error:', err.message)
     res.status(500).json({ error: err.message })
   }
 })
 
-// POST /api/save/:playerId
+// ── POST ───────────────────────────────────────────────────────────────────────
 router.post('/:playerId', async (req, res) => {
-  const { position, flags } = req.body
+  const { position, inventory, flags } = req.body
   try {
     await PlayerSave.findOneAndUpdate(
       { playerId: req.params.playerId },
-      { position, flags, updatedAt: new Date() },
-      { upsert: true }
+      {
+        position:  position  ?? undefined,
+        inventory: inventory ?? {},
+        flags:     flags     ?? {},
+        updatedAt: new Date(),
+      },
+      { upsert: true, new: true }
     )
     res.json({ ok: true })
   } catch (err) {
+    console.error('[Save] POST error:', err.message)
     res.status(500).json({ error: err.message })
   }
 })

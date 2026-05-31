@@ -3,27 +3,32 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { MeshBVH, StaticGeometryGenerator } from 'three-mesh-bvh'
 
 import { CharacterController } from '../systems/CharacterController.js'
-import { InputManager } from '../systems/InputManager.js'
-import { DialogueSystem } from '../systems/DialogueSystem.js'
-import { NPCManager } from '../systems/NPCManager.js'
-import { HUD } from '../ui/HUD.js'
-import { setProgress } from '../ui/Loading.js'
+import { InputManager }        from '../systems/InputManager.js'
+import { DialogueSystem }      from '../systems/DialogueSystem.js'
+import { NPCManager }          from '../systems/NPCManager.js'
+import { ItemManager }         from '../systems/ItemManager.js'
+import { InventoryManager }    from '../systems/InventoryManager.js'
+import { HUD }                 from '../ui/HUD.js'
+import { setProgress }         from '../ui/Loading.js'
+import { WORLD_ITEMS }         from '../data/worldItems.js'
 
 export class Engine {
   constructor() {
-    this.scene = null
-    this.camera = null
+    this.scene    = null
+    this.camera   = null
     this.renderer = null
-    this.clock = new THREE.Clock()
+    this.clock    = new THREE.Clock()
 
     this.character = null
-    this.input = null
-    this.dialogue = null
-    this.npcs = null
-    this.hud = null
+    this.input     = null
+    this.dialogue  = null
+    this.npcs      = null
+    this.items     = null
+    this.inventory = null
+    this.hud       = null
 
-    this.collider = null       // BVH collider mesh
-    this.worldGroup = null     // all loaded world meshes
+    this.collider   = null
+    this.worldGroup = null
   }
 
   async init() {
@@ -32,9 +37,15 @@ export class Engine {
     this._setupCamera()
     this._setupLights()
 
-    this.input     = new InputManager()
-    this.dialogue  = new DialogueSystem()
-    this.hud       = new HUD(this.dialogue)
+    // ── Inventory (load from MongoDB before anything else) ──────────────────
+    const playerId   = InventoryManager.getOrCreatePlayerId()
+    this.inventory   = new InventoryManager(playerId)
+    await this.inventory.load()
+
+    // ── Systems ─────────────────────────────────────────────────────────────
+    this.input    = new InputManager()
+    this.dialogue = new DialogueSystem(this.inventory)
+    this.hud      = new HUD(this.dialogue, this.inventory)
 
     await this._loadWorld()
 
@@ -46,9 +57,16 @@ export class Engine {
     })
 
     this.npcs = new NPCManager({
-      scene:    this.scene,
-      dialogue: this.dialogue,
+      scene:     this.scene,
+      dialogue:  this.dialogue,
       character: this.character,
+    })
+
+    // ── Item pickups ─────────────────────────────────────────────────────────
+    this.items = new ItemManager({
+      scene:      this.scene,
+      inventory:  this.inventory,
+      worldItems: WORLD_ITEMS,
     })
 
     // Hide loading screen
@@ -60,7 +78,7 @@ export class Engine {
     window.addEventListener('resize', () => this._onResize())
   }
 
-  // ─── Renderer ────────────────────────────────────────────────────────────
+  // ─── Renderer ─────────────────────────────────────────────────────────────
   _setupRenderer() {
     this.renderer = new THREE.WebGLRenderer({ antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -83,40 +101,32 @@ export class Engine {
     this.camera = new THREE.PerspectiveCamera(
       70, window.innerWidth / window.innerHeight, 0.01, 300
     )
-    // Camera is parented to the character controller later
   }
 
   _setupLights() {
-    const ambient = new THREE.AmbientLight(0xfff4e0, 0.6)
-    this.scene.add(ambient)
-
+    this.scene.add(new THREE.AmbientLight(0xfff4e0, 0.6))
     const sun = new THREE.DirectionalLight(0xfff4e0, 2.0)
     sun.position.set(50, 80, 30)
     sun.castShadow = true
     sun.shadow.mapSize.setScalar(2048)
     sun.shadow.camera.near = 0.1
     sun.shadow.camera.far = 200
-    sun.shadow.camera.left = -50
-    sun.shadow.camera.right = 50
-    sun.shadow.camera.top = 50
-    sun.shadow.camera.bottom = -50
+    sun.shadow.camera.left = -50; sun.shadow.camera.right = 50
+    sun.shadow.camera.top  =  50; sun.shadow.camera.bottom = -50
     sun.shadow.bias = -0.001
     this.scene.add(sun)
   }
 
-  // ─── World Loading ────────────────────────────────────────────────────────
+  // ─── World loading ─────────────────────────────────────────────────────────
   async _loadWorld() {
     setProgress(10, 'Loading world...')
-
-    // Check if a GLB exists; if not, build a placeholder world
     let worldLoaded = false
     try {
       const loader = new GLTFLoader()
-      const gltf = await new Promise((resolve, reject) => {
+      const gltf   = await new Promise((resolve, reject) => {
         loader.load(
-          '/assets/world.glb',
-          resolve,
-          (e) => setProgress(10 + (e.loaded / e.total) * 50, 'Loading mesh...'),
+          '/assets/world.glb', resolve,
+          e => setProgress(10 + (e.loaded / e.total) * 50, 'Loading mesh...'),
           reject
         )
       })
@@ -124,7 +134,7 @@ export class Engine {
       worldLoaded = true
       setProgress(60, 'World loaded')
     } catch {
-      console.warn('[Engine] No world.glb found — using placeholder geometry')
+      console.warn('[Engine] No world.glb — using placeholder')
       this.worldGroup = this._buildPlaceholderWorld()
       setProgress(60, 'Using placeholder world')
     }
@@ -132,36 +142,26 @@ export class Engine {
     this.scene.add(this.worldGroup)
     this.worldGroup.updateMatrixWorld(true)
 
-    // ── Build BVH collider ──────────────────────────────────────────────────
     setProgress(70, 'Building collision...')
     const staticGen = new StaticGeometryGenerator(this.worldGroup)
     staticGen.attributes = ['position']
-
     const mergedGeometry = staticGen.generate()
     mergedGeometry.boundsTree = new MeshBVH(mergedGeometry)
-
     this.collider = new THREE.Mesh(mergedGeometry)
     this.collider.material.wireframe = true
-    this.collider.material.visible = false   // set true to debug collisions
+    this.collider.material.visible   = false
     this.collider.name = 'collider'
     this.scene.add(this.collider)
 
-    // Shadows on world meshes
     this.worldGroup.traverse(obj => {
-      if (obj.isMesh) {
-        obj.castShadow = true
-        obj.receiveShadow = true
-      }
+      if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true }
     })
 
     setProgress(90, 'Spawning NPCs...')
   }
 
-  // ─── Placeholder world (used when no GLB is present) ─────────────────────
   _buildPlaceholderWorld() {
     const group = new THREE.Group()
-
-    // Ground plane
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(80, 80),
       new THREE.MeshLambertMaterial({ color: 0x4a7c40 })
@@ -170,41 +170,23 @@ export class Engine {
     ground.receiveShadow = true
     group.add(ground)
 
-    // Scattered boxes as stand-in buildings
     const buildingMat = new THREE.MeshLambertMaterial({ color: 0xb08060 })
-    const positions = [
-      [6, 1.5, -8], [-10, 2, -12], [14, 1, -6],
-      [-5, 3, -18], [20, 2, -14], [-16, 1.5, -8]
-    ]
-    for (const [x, h, z] of positions) {
-      const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(4, h * 2, 4),
-        buildingMat
-      )
-      mesh.position.set(x, h, z)
-      mesh.castShadow = true
-      mesh.receiveShadow = true
+    for (const [x, h, z] of [[6,1.5,-8],[-10,2,-12],[14,1,-6],[-5,3,-18],[20,2,-14],[-16,1.5,-8]]) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(4, h * 2, 4), buildingMat)
+      mesh.position.set(x, h, z); mesh.castShadow = true; mesh.receiveShadow = true
       group.add(mesh)
     }
-
-    // Low wall / ramp to test collision
-    const ramp = new THREE.Mesh(
-      new THREE.BoxGeometry(8, 0.5, 3),
-      new THREE.MeshLambertMaterial({ color: 0x888888 })
-    )
-    ramp.position.set(-3, 0.25, -4)
-    ramp.rotation.z = 0.15
-    group.add(ramp)
-
     return group
   }
 
-  // ─── Loop ─────────────────────────────────────────────────────────────────
+  // ─── Loop ──────────────────────────────────────────────────────────────────
   _startLoop() {
     this.renderer.setAnimationLoop(() => {
       const delta = this.clock.getDelta()
       this.character.update(delta)
       this.npcs.update(delta)
+      // Pass player position so ItemManager can do proximity checks
+      this.items.update(delta, this.character.getPosition())
       this.renderer.render(this.scene, this.camera)
     })
   }
