@@ -20,14 +20,14 @@ const MASTER_VOLUME = 0.8   // 0–1
 
 export class AudioManager {
   constructor() {
-    this._ctx        = null   // AudioContext — created on first interaction
-    this._master     = null   // GainNode
-    this._positional = []     // { id, url, position, maxDist, source, gainNode }
-    this._cache      = {}     // url → AudioBuffer
+    this._ctx        = null
+    this._master     = null
+    this._positional = []
+    this._cache      = {}
     this._started    = false
-
-    // Web Audio requires a user gesture before the context can run.
-    // We create it lazily on the first call to _ensureCtx().
+    this._trackSource = null   // ← add
+    this._trackGain   = null   // ← add
+    this._trackVolume = 0      // ← add
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -67,18 +67,19 @@ export class AudioManager {
    * @param {string} file     — filename inside /assets/audio/
    * @param {number} volume   — 0–1, defaults to 1
    */
-  async playOneShot(file, volume = 1) {
-    const ctx = await this._ensureCtx()
-    if (!ctx) return
-    const buffer = await this._load(BASE_PATH + file)
-    if (!buffer) return
-    const source = ctx.createBufferSource()
-    source.buffer = buffer
-    const gain = ctx.createGain()
-    gain.gain.setValueAtTime(volume * MASTER_VOLUME, ctx.currentTime)
-    source.connect(gain).connect(this._master)
-    source.start()
-  }
+async playOneShot(file, volume = 1, pitch = 1) {
+  const ctx = await this._ensureCtx()
+  if (!ctx) return
+  const buffer = await this._load(BASE_PATH + file)
+  if (!buffer) return
+  const source = ctx.createBufferSource()
+  source.buffer = buffer
+  source.playbackRate.value = pitch          // ← pitch shift
+  const gain = ctx.createGain()
+  gain.gain.setValueAtTime(volume * MASTER_VOLUME, ctx.currentTime)
+  source.connect(gain).connect(this._master)
+  source.start()
+}
 
   /**
    * Call every frame from Engine's game loop.
@@ -113,6 +114,60 @@ export class AudioManager {
       this._startEntry(entry)
     }
   }
+
+  /**
+ * Play a looping background track with a fade-in.
+ * @param {string} file       — filename inside /assets/audio/
+ * @param {number} volume     — target volume 0–1 (default 0.7)
+ * @param {number} fadeDuration — fade-in duration in seconds (default 2)
+ */
+async playTrack(file, volume = 0.7, fadeDuration = 2) {
+  const ctx = await this._ensureCtx()
+  if (!ctx) return
+
+  // Stop any existing track first
+  this.stopTrack()
+
+  const buffer = await this._load(BASE_PATH + file)   // ← remove 'audio/' prefix
+  if (!buffer) return
+
+  const source = ctx.createBufferSource()
+  source.buffer = buffer
+  source.loop   = true
+
+  const gain = ctx.createGain()
+  gain.gain.setValueAtTime(0, ctx.currentTime)
+  gain.gain.linearRampToValueAtTime(volume * MASTER_VOLUME, ctx.currentTime + fadeDuration)
+
+  source.connect(gain)
+  gain.connect(this._master)
+  source.start()
+
+  this._trackSource = source
+  this._trackGain   = gain
+  this._trackVolume = volume
+}
+
+/**
+ * Fade out and stop the current background track.
+ * @param {number} fadeDuration — fade-out duration in seconds (default 1.5)
+ */
+stopTrack(fadeDuration = 1.5) {
+  if (!this._trackSource || !this._ctx) return
+  const gain   = this._trackGain
+  const source = this._trackSource
+  const ctx    = this._ctx
+
+  gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime)
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + fadeDuration)
+
+  setTimeout(() => {
+    try { source.stop() } catch { /* already stopped */ }
+  }, fadeDuration * 1000)
+
+  this._trackSource = null
+  this._trackGain   = null
+}
 
   // ── Internal ───────────────────────────────────────────────────────────────
 

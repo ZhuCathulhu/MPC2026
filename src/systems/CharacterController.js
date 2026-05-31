@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { computeBoundsTree } from 'three-mesh-bvh'
 
+const FOOTSTEP_INTERVAL = 0.38 
+
 const GRAVITY        = -25
 const JUMP_SPEED     = 10
 const WALK_SPEED     = 5
@@ -14,18 +16,21 @@ const CAM_LERP       = 0.15
 const MOUSE_SENS     = 0.002
 
 export class CharacterController {
-  constructor({ scene, camera, collider, input }) {
+  constructor({ scene, camera, collider, input, audio }) {
     this.scene    = scene
     this.camera   = camera
     this.collider = collider
     this.input    = input
+    this.audio    = audio        // ← add this
 
     this.velocity = new THREE.Vector3()
     this.onGround = false
     this.yaw      = 0
     this.pitch    = 0
-
     this.position = new THREE.Vector3(0, 0, 4)
+
+    this._footstepTimer = 0      // ← add this
+    this._wasOnGround   = false  // ← add this
 
     this._buildMesh()
     this._setupPointerLock()
@@ -88,26 +93,57 @@ export class CharacterController {
     })
   }
 
-  update(delta) {
-    this._applyGravity(delta)
-    this._applyMovement(delta)
-    this._resolveCollisions()
-    this._updateCamera()
+update(delta) {
+  this._applyGravity(delta)
+  this._applyMovement(delta)
+  this._resolveCollisions()
+  this._updateCamera()
 
-    this.mesh.position.copy(this.position)
-    if (this._modelGroup) {
-      this._modelGroup.position.copy(this.position)
-      // Face direction of travel
-      const { x, z } = this.input.getMovement()
-      if (Math.abs(x) > 0.01 || Math.abs(z) > 0.01) {
-        const angle = Math.atan2(
-          -Math.sin(this.yaw) * (-z) + Math.cos(this.yaw) * x,
-          -Math.cos(this.yaw) * (-z) - Math.sin(this.yaw) * x
-        )
-        this._modelGroup.rotation.y += (angle - this._modelGroup.rotation.y) * 0.2
-      }
+  this.mesh.position.copy(this.position)
+  if (this._modelGroup) {
+    this._modelGroup.position.copy(this.position)
+    const { x, z } = this.input.getMovement()
+    if (Math.abs(x) > 0.01 || Math.abs(z) > 0.01) {
+      const angle = Math.atan2(
+        -Math.sin(this.yaw) * (-z) + Math.cos(this.yaw) * x,
+        -Math.cos(this.yaw) * (-z) - Math.sin(this.yaw) * x
+      )
+      this._modelGroup.rotation.y += (angle - this._modelGroup.rotation.y) * 0.2
     }
   }
+
+  // ── Audio ──────────────────────────────────────────────────────────────
+  if (this.audio) {
+    const { x, z } = this.input.getMovement()
+    const isMoving  = this.onGround && (Math.abs(x) > 0.1 || Math.abs(z) > 0.1)
+    const speed     = this.input.keys.run ? RUN_SPEED : WALK_SPEED
+    const interval  = FOOTSTEP_INTERVAL / (speed / WALK_SPEED)   // faster when running
+
+    // Footsteps
+    if (isMoving) {
+      this._footstepTimer -= delta
+      if (this._footstepTimer <= 0) {
+        const pitch = 0.9 + Math.random() * 0.2
+        this.audio.playOneShot('audio/walking.mp3', 3.0, pitch)
+        this._footstepTimer = interval
+      }
+    } else {
+      this._footstepTimer = 0
+    }
+
+    // Jump — plays on takeoff
+    if (!this._wasOnGround && !this.onGround && this.velocity.y > 0) {
+      this.audio.playOneShot('audio/jump.mp3', 2.0)
+    }
+
+    // Land — plays on touchdown
+    if (!this._wasOnGround && this.onGround) {
+      this.audio.playOneShot('audio/jump.mp3', 1.0)
+    }
+
+    this._wasOnGround = this.onGround
+  }
+}
 
   _applyGravity(delta) {
     if (!this.onGround) this.velocity.y += GRAVITY * delta

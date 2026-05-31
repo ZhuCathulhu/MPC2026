@@ -56,12 +56,13 @@ export class Engine {
 
     await this._loadWorld()
 
-    this.character = new CharacterController({
-      scene:    this.scene,
-      camera:   this.camera,
-      collider: this.collider,
-      input:    this.input,
-    })
+this.character = new CharacterController({
+  scene:    this.scene,
+  camera:   this.camera,
+  collider: this.collider,
+  input:    this.input,
+  audio:    this.audio,       // ← add this
+})
     this.npcs = new NPCManager({
       scene:     this.scene,
       dialogue:  this.dialogue,
@@ -100,19 +101,19 @@ export class Engine {
     // Played whenever the player presses E/F or the Talk button.
     // Hook is in InputManager via the interact event below.
     this._onInteractSound = () => {
-      this.audio.playOneShot('interact.mp3', 0.6)
+      this.audio.playOneShot('audio/interact.mp3', 0.6)
     }
 
     // ── Item pickup sound ──────────────────────────────────────────────────
     this.inventory.addEventListener('item-collected', () => {
-      this.audio.playOneShot('item_pickup.mp3', 0.8)
+      this.audio.playOneShot('audio/item_pickup.mp3', 0.8)
     })
 
-    this.audio.addPositional('water', 'water.mp3', [5, 0, -4], 20)
+    this.audio.addPositional('water', 'audio/water.mp3', [5, 0, -4], 20)
 
     this.dialogue.addEventListener('item-gained', (e) => {
     console.log('[Audio] item-gained fired', e.detail)
-    this.audio.playOneShot('item_pickup.mp3', 0.8)
+    this.audio.playOneShot('audio/item_pickup.mp3', 0.8)
   })
 
   }
@@ -189,22 +190,27 @@ export class Engine {
     document.getElementById('loading-bar').style.width   = pct + '%'
   }
 
-  _setupMenuEvents() {
-    document.getElementById('btn-play').addEventListener('click', () => this._showStory())
-    document.getElementById('btn-next').addEventListener('click', () => {
-      const text = document.getElementById('story-text')
-      if (!this._twDone) { this._flushTypewriter(text); return }   // skip to end
-      if (this._currentSlide < STORY_SLIDES.length - 1) {
-        this._currentSlide++; this._renderSlide()
-      } else {
-        this._enterGame()
-      }
-    })
-
-    document.getElementById('btn-back').addEventListener('click', () => {
-      if (this._currentSlide > 0) { this._currentSlide--; this._renderSlide() }
-    })
-  }
+_setupMenuEvents() {
+  document.getElementById('btn-play').addEventListener('click', () => {
+    this.audio.playOneShot('audio/interact.mp3', 0.7)
+    this.audio.playTrack('audio/intro-music.wav', 0.3, 2)
+    this._showStory()
+  })
+  document.getElementById('btn-next').addEventListener('click', () => {
+    this.audio.playOneShot('audio/interact.mp3', 0.7)
+    const text = document.getElementById('story-text')
+    if (!this._twDone) { this._flushTypewriter(text); return }
+    if (this._currentSlide < STORY_SLIDES.length - 1) {
+      this._currentSlide++; this._renderSlide()
+    } else {
+      this._enterGame()
+    }
+  })
+  document.getElementById('btn-back').addEventListener('click', () => {
+    this.audio.playOneShot('audio/interact.mp3', 0.7)
+    if (this._currentSlide > 0) { this._currentSlide--; this._renderSlide() }
+  })
+}
 
   _showStory() {
     document.getElementById('main-menu').classList.add('hidden')
@@ -235,7 +241,6 @@ _typeText(el, text, onDone) {
   this._twDone     = false
   if (this._twTimer) { clearTimeout(this._twTimer); this._twTimer = null }
 
-  // Single wrapper — flex never separates text from cursor
   const wrapper  = document.createElement('span')
   wrapper.style.cssText = 'display: inline; white-space: pre-line;'
   const textNode = document.createTextNode('')
@@ -245,6 +250,8 @@ _typeText(el, text, onDone) {
   wrapper.appendChild(textNode)
   wrapper.appendChild(cursor)
   el.appendChild(wrapper)
+
+  const SILENT = new Set([' ', '\n', ',', '.', '—', '!', '?', ':'])  // no click on these
 
   let i = 0
   const tick = () => {
@@ -256,6 +263,12 @@ _typeText(el, text, onDone) {
     }
     const ch = text[i++]
     textNode.textContent += ch
+
+    if (!SILENT.has(ch)) {
+      const pitch = 0.9 + Math.random() * 0.25   // random pitch between 0.9–1.15
+      this.audio.playOneShot('audio/typewriter-click.mp3', 1.2, pitch)
+    }
+
     const jitter = Math.random() * this._BASE_SPEED * 0.3 | 0
     const pause  = (this._PUNCT_PAUSE[ch] ?? 0) + jitter
     this._twTimer = setTimeout(tick, this._BASE_SPEED + pause)
@@ -283,22 +296,25 @@ _renderSlide() {
   this._typeText(text, STORY_SLIDES[this._currentSlide])
 }
 
-  _enterGame() {
-    document.getElementById('story-screen').classList.add('hidden')
-    setTimeout(() => {
-      document.getElementById('story-screen').remove()
-      document.body.classList.add('game-active')
-      document.getElementById('hint').style.display = 'block'
-      document.getElementById('joystick-zone').classList.add('visible')
-      document.getElementById('btn-jump').classList.add('visible')
-      document.getElementById('btn-talk').classList.add('visible')
-          document.getElementById('day-counter').classList.add('visible')  // ← add this
+_enterGame() {
+  this.audio.stopTrack(1.5)
+  document.getElementById('story-screen').classList.add('hidden')
+  setTimeout(() => {
+    document.getElementById('story-screen').remove()
+    document.body.classList.add('game-active')
+    document.getElementById('hint').style.display = 'block'
+    document.getElementById('joystick-zone').classList.add('visible')
+    document.getElementById('btn-jump').classList.add('visible')
+    document.getElementById('btn-talk').classList.add('visible')
+    document.getElementById('day-counter').classList.add('visible')
+    this.input.initJoystick()
+    this._gameRunning = true
 
-      this.input.initJoystick()
-      this._gameRunning = true
-      this._startAudio()   // AudioContext created here — after user gesture
-    }, 600)
-  }
+    // ── Start ambient audio ──────────────────────────────────
+this.audio.playTrack('audio/water.mp3', 0.01)
+this.audio.start()
+  }, 600)
+}
 
   _setupDialogueUI() {
     const dlgBox       = document.getElementById('dialogue-box')
